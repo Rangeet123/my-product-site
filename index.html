@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Campus Copilot</title>
+<meta name="description" content="A demo of Campus Copilot — a personal information layer that turns scattered campus email, calendar, LMS and forwarded messages into deadlines, schedules and source-backed answers.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* ================= DESIGN TOKENS ================= */
+:root{
+  color-scheme: light;
+  --bg:#FAF9F6;
+  --surface:#FFFFFF;
+  --surface-2:#F2F1EC;
+  --surface-3:#EAE8E1;
+  --border:#E1DFD6;
+  --border-strong:#CFCCC0;
+  --text:#1B1A17;
+  --text-muted:#6B6A62;
+  --text-faint:#96948A;
+  --accent:#3454D1;
+  --accent-ink:#233A9C;
+  --accent-tint:#EAEDFB;
+  --good:#1C7C4C;
+  --good-tint:#E7F5EC;
+  --warn:#966B12;
+  --warn-tint:#FBF1DC;
+  --critical:#B23B2E;
+  --critical-tint:#FBEAE7;
+  --info:#2C6E8E;
+  --info-tint:#E8F3F7;
+  --shadow-sm: 0 1px 2px rgba(27,26,23,0.06);
+  --shadow-md: 0 4px 16px rgba(27,26,23,0.08);
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:18px;
+  --sidebar-w:236px;
+  --font-display:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#131313;
+    --surface:#1A1A1A;
+    --surface-2:#202020;
+    --surface-3:#282828;
+    --border:#2E2E2C;
+    --border-strong:#3C3B37;
+    --text:#F2F1EC;
+    --text-muted:#A6A49A;
+    --text-faint:#7C7A70;
+    --accent:#7C93F5;
+    --accent-ink:#AEBBF7;
+    --accent-tint:#1F2540;
+    --good:#5FBE8B;
+    --good-tint:#153426;
+    --warn:#D9AE55;
+    --warn-tint:#3A2E11;
+    --critical:#E28C7D;
+    --critical-tint:#3B1F1A;
+    --info:#7EC0DB;
+    --info-tint:#173340;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#131313;
+  --surface:#1A1A1A;
+  --surface-2:#202020;
+  --surface-3:#282828;
+  --border:#2E2E2C;
+  --border-strong:#3C3B37;
+  --text:#F2F1EC;
+  --text-muted:#A6A49A;
+  --text-faint:#7C7A70;
+  --accent:#7C93F5;
+  --accent-ink:#AEBBF7;
+  --accent-tint:#1F2540;
+  --good:#5FBE8B;
+  --good-tint:#153426;
+  --warn:#D9AE55;
+  --warn-tint:#3A2E11;
+  --critical:#E28C7D;
+  --critical-tint:#3B1F1A;
+  --info:#7EC0DB;
+  --info-tint:#173340;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.5);
+}
+*,*::before,*::after{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+img{max-width:100%;}
+[hidden]{display:none!important;}
+h1,h2,h3,h4{font-family:var(--font-display);margin:0;text-wrap:balance;letter-spacing:-0.01em;}
+p{margin:0;}
+button{font-family:inherit;}
+a{color:var(--accent);}
+::selection{background:var(--accent-tint);}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important;}}
+
+/* ================= LAYOUT SHELLS ================= */
+#app{min-height:100%;}
+.screen{min-height:100%;}
+
+/* ---- Auth / onboarding screens ---- */
+.auth-wrap{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:32px 16px;
+  background:
+    radial-gradient(560px 320px at 15% 0%, var(--accent-tint), transparent 60%),
+    var(--bg);
+}
+.auth-card{
+  width:100%;max-width:400px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-md);
+  padding:36px 30px;
+  text-align:center;
+}
+.auth-logo{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;}
+.auth-logo .mark{
+  width:34px;height:34px;border-radius:9px;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;color:#fff;flex:none;
+}
+.auth-logo .wordmark{font-family:var(--font-display);font-weight:800;font-size:19px;letter-spacing:-0.02em;}
+.auth-tag{color:var(--text-muted);font-size:14.5px;margin:2px 0 26px;}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--font-display);font-weight:700;font-size:14.5px;
+  border-radius:10px;border:1px solid transparent;cursor:pointer;
+  padding:12px 18px;min-height:44px;width:100%;
+  transition:filter .12s, background .12s, border-color .12s;
+}
+.btn:hover{filter:brightness(0.97);}
+.btn:active{filter:brightness(0.93);}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-secondary{background:var(--surface);color:var(--text);border-color:var(--border-strong);}
+.btn-ghost{background:transparent;color:var(--accent);border-color:transparent;}
+.btn-ghost:hover{background:var(--accent-tint);}
+.btn-sm{padding:8px 12px;min-height:34px;font-size:13.5px;border-radius:8px;}
+.btn-danger-ghost{background:transparent;color:var(--critical);border-color:var(--border-strong);}
+.auth-actions{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+.auth-divider{display:flex;align-items:center;gap:10px;color:var(--text-faint);font-size:12px;margin:16px 0;}
+.auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--border);}
+.auth-fine{font-size:12.5px;color:var(--text-faint);margin-top:18px;line-height:1.5;}
+.pfp-upload{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:22px;}
+.pfp-circle{width:72px;height:72px;border-radius:50%;background:var(--surface-2);border:1.5px dashed var(--border-strong);display:flex;align-items:center;justify-content:center;color:var(--text-faint);cursor:pointer;overflow:hidden;flex:none;}
+.pfp-circle:hover{border-color:var(--accent);color:var(--accent);}
+.pfp-circle img{width:100%;height:100%;object-fit:cover;}
+.pfp-label{font-size:12.5px;color:var(--text-faint);cursor:pointer;}
+
+.onboard-wrap{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px 100px;}
+.onboard-card{width:100%;max-width:640px;}
+.onboard-steps{display:flex;gap:8px;margin-bottom:22px;}
+.onboard-steps .dot{flex:1;height:4px;border-radius:2px;background:var(--border);}
+.onboard-steps .dot.on{background:var(--accent);}
+.onboard-head h1{font-size:24px;margin-bottom:4px;}
+.onboard-head p{color:var(--text-muted);margin-bottom:22px;}
+.source-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:26px;}
+@media (max-width:560px){.source-grid{grid-template-columns:1fr;}}
+.source-card{
+  border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);
+  padding:14px;display:flex;flex-direction:column;gap:8px;
+}
+.source-card .row{display:flex;align-items:center;gap:10px;}
+.source-card .ic{width:32px;height:32px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-muted);}
+.source-card .name{font-weight:600;font-size:14px;}
+.source-card .sub{font-size:12.5px;color:var(--text-faint);margin-top:-2px;}
+.course-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px;}
+.chip{
+  border:1px solid var(--border-strong);border-radius:999px;padding:8px 14px;font-size:13.5px;
+  cursor:pointer;background:var(--surface);color:var(--text);user-select:none;
+  display:inline-flex;align-items:center;gap:6px;min-height:38px;
+}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.pref-list{display:flex;flex-direction:column;gap:2px;margin-bottom:28px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;background:var(--surface);}
+.pref-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);gap:12px;}
+.pref-row:last-child{border-bottom:none;}
+.pref-row .t{font-weight:600;font-size:14px;}
+.pref-row .s{font-size:12.5px;color:var(--text-faint);}
+.switch{position:relative;width:42px;height:24px;border-radius:999px;background:var(--border-strong);flex:none;cursor:pointer;border:none;padding:0;}
+.switch.on{background:var(--accent);}
+.switch .knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:var(--shadow-sm);}
+.switch.on .knob{left:21px;}
+.onboard-actions{display:flex;justify-content:space-between;gap:10px;}
+
+/* ---- Main app shell ---- */
+.app-shell{display:flex;min-height:100vh;}
+.sidebar{
+  width:var(--sidebar-w);flex:none;border-right:1px solid var(--border);
+  background:var(--surface);display:flex;flex-direction:column;
+  padding:18px 12px;position:sticky;top:0;height:100vh;
+}
+.sidebar-brand{display:flex;align-items:center;gap:9px;padding:6px 8px 18px;}
+.sidebar-brand .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;flex:none;}
+.sidebar-brand .wordmark{font-family:var(--font-display);font-weight:800;font-size:15.5px;letter-spacing:-0.02em;}
+.nav-list{display:flex;flex-direction:column;gap:2px;flex:1;}
+.nav-item{
+  display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;
+  color:var(--text-muted);font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;
+  text-align:left;width:100%;
+}
+.nav-item svg{flex:none;}
+.nav-item:hover{background:var(--surface-2);color:var(--text);}
+.nav-item.active{background:var(--accent-tint);color:var(--accent-ink);}
+.nav-item.capture{color:var(--accent);}
+.sidebar-foot{border-top:1px solid var(--border);padding-top:10px;margin-top:6px;}
+.user-pill{display:flex;align-items:center;gap:9px;padding:8px;border-radius:9px;}
+.user-pill:hover{background:var(--surface-2);cursor:pointer;}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none;font-family:var(--font-display);}
+.user-pill .un{font-size:13px;font-weight:600;}
+.user-pill .ue{font-size:11.5px;color:var(--text-faint);}
+
+.main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  display:none;
+  position:sticky;top:0;z-index:20;
+  align-items:center;justify-content:space-between;
+  padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);
+}
+.topbar .tb-title{font-family:var(--font-display);font-weight:800;font-size:16px;}
+.content{flex:1;padding:28px 32px 60px;max-width:1280px;width:100%;margin:0 auto;}
+.content-with-rail{display:grid;grid-template-columns:1fr 300px;gap:28px;align-items:start;}
+@media (max-width:1180px){.content-with-rail{grid-template-columns:1fr;}}
+
+.page-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+.page-head h1{font-size:22px;}
+.page-head .sub{color:var(--text-muted);font-size:13.5px;margin-top:3px;}
+
+/* bottom nav (mobile) */
+.bottom-nav{
+  display:none;position:fixed;left:0;right:0;bottom:0;z-index:30;
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));
+  grid-template-columns:repeat(5,1fr);gap:2px;
+}
+.bn-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 2px;border-radius:10px;background:none;border:none;color:var(--text-faint);
+  font-size:10.5px;font-weight:600;min-height:48px;justify-content:center;
+}
+.bn-item.active{color:var(--accent);}
+.bn-item.primary{color:var(--accent);}
+.bn-item.primary .bn-ic{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:1px;}
+
+@media (max-width:1023px){
+  .sidebar{display:none;}
+  .topbar{display:flex;}
+  .bottom-nav{display:grid;}
+  .content{padding:16px 16px 90px;}
+  .page-head h1{font-size:19px;}
+}
+
+/* ================= COMPONENTS ================= */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);}
+.section{margin-bottom:28px;}
+.section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.section-title h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);font-weight:700;}
+.section-title .count{font-size:12px;color:var(--text-faint);}
+
+.next-up{
+  background:linear-gradient(135deg, var(--accent), var(--accent-ink));
+  color:#fff;border-radius:var(--radius-lg);padding:20px 22px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  box-shadow:var(--shadow-md);
+}
+.next-up .lbl{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;opacity:.8;font-weight:700;margin-bottom:6px;}
+.next-up .course{font-family:var(--font-display);font-size:22px;font-weight:800;}
+.next-up .meta{font-size:13.5px;opacity:.92;margin-top:4px;}
+.next-up .countdown{font-family:var(--font-mono);font-size:13.5px;background:rgba(255,255,255,.16);padding:8px 14px;border-radius:999px;font-weight:600;}
+
+.day-card{
+  display:flex;gap:14px;padding:14px 16px;border-radius:var(--radius-md);border:1px solid var(--border);
+  background:var(--surface);align-items:flex-start;
+}
+.day-card + .day-card{margin-top:8px;}
+.day-card .time{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--text-muted);width:64px;flex:none;padding-top:2px;}
+.day-card .dot{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:none;}
+.day-card .body{flex:1;min-width:0;}
+.day-card .ttl{font-weight:700;font-size:14.5px;}
+.day-card .meta{font-size:12.5px;color:var(--text-muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.day-card .actions{display:flex;gap:6px;flex:none;}
+.icon-btn{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);
+  color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;
+}
+.icon-btn:hover{background:var(--surface-2);color:var(--text);}
+.icon-btn.done{color:var(--good);border-color:var(--good);}
+
+.attn-card{
+  display:flex;gap:12px;padding:14px 16px;border-radius:var(--radius-md);
+  border:1px solid var(--critical);background:var(--critical-tint);align-items:flex-start;
+}
+.attn-card + .attn-card{margin-top:8px;}
+.attn-card .ic{color:var(--critical);flex:none;margin-top:2px;}
+.attn-card .ttl{font-weight:700;font-size:14px;}
+.attn-card .meta{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
+
+.change-card{display:flex;gap:12px;align-items:flex-start;padding:13px 16px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface);}
+.change-card + .change-card{margin-top:8px;}
+.change-card .ic{color:var(--info);flex:none;margin-top:2px;}
+.change-card .diff{font-family:var(--font-mono);font-size:12.5px;margin-top:4px;}
+.change-card .diff .old{color:var(--text-faint);text-decoration:line-through;}
+.change-card .diff .new{color:var(--good);font-weight:600;}
+
+.rail-card{padding:14px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--surface);margin-bottom:12px;}
+.rail-card h3{font-size:12.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);margin-bottom:10px;}
+.rail-item{display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-top:1px solid var(--border);font-size:13px;}
+.rail-item:first-child{border-top:none;}
+.rail-item .t{font-weight:600;}
+.rail-item .d{color:var(--text-faint);font-family:var(--font-mono);font-size:11.5px;flex:none;}
+
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;line-height:1.5;white-space:nowrap;}
+.badge-course{background:var(--surface-3);color:var(--text);}
+.badge-conf-high{background:var(--good-tint);color:var(--good);}
+.badge-conf-med{background:var(--warn-tint);color:var(--warn);}
+.badge-conf-low{background:var(--critical-tint);color:var(--critical);}
+.badge-source{background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border);}
+.badge-cat{background:var(--accent-tint);color:var(--accent-ink);}
+.badge-priority-high{background:var(--critical-tint);color:var(--critical);}
+.badge-priority-med{background:var(--warn-tint);color:var(--warn);}
+.badge-priority-low{background:var(--surface-3);color:var(--text-muted);}
+
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:18px;}
+.tab{
+  flex:none;padding:8px 14px;border-radius:999px;border:1px solid var(--border-strong);background:var(--surface);
+  color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;min-height:36px;
+}
+.tab.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-muted);}
+.empty-state .ic{color:var(--text-faint);margin-bottom:12px;}
+.empty-state h3{font-size:15.5px;color:var(--text);margin-bottom:4px;}
+.empty-state p{font-size:13.5px;}
+
+.today-block{margin-bottom:26px;}
+.today-block h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.now-strip{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--radius-md);
+  background:var(--good-tint);border:1px solid var(--good);color:var(--good);font-weight:700;font-size:13.5px;margin-bottom:26px;
+}
+.now-strip .pulse{width:8px;height:8px;border-radius:50%;background:var(--good);animation:pulse 1.8s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(28,124,76,.5);}70%{box-shadow:0 0 0 8px rgba(28,124,76,0);}100%{box-shadow:0 0 0 0 rgba(28,124,76,0);}}
+
+/* Calendar */
+.cal-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
+.cal-toolbar .lbl{font-family:var(--font-display);font-weight:700;font-size:15px;}
+.cal-nav{display:flex;gap:6px;}
+.week-grid{display:grid;grid-template-columns:56px repeat(7,1fr);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;background:var(--surface);}
+.week-grid .head{padding:10px 6px;text-align:center;font-size:12px;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);border-left:1px solid var(--border);background:var(--surface-2);}
+.week-grid .head:first-child{border-left:none;}
+.week-grid .head.today{color:var(--accent);}
+.week-grid .corner{border-bottom:1px solid var(--border);background:var(--surface-2);}
+.week-grid .hourlbl{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);text-align:right;padding:4px 6px 0 0;border-top:1px solid var(--border);}
+.week-grid .cell{border-top:1px solid var(--border);border-left:1px solid var(--border);min-height:44px;position:relative;}
+.week-grid .cell.today-col{background:var(--accent-tint);}
+.ev-block{
+  position:absolute;left:3px;right:3px;border-radius:6px;padding:4px 6px;font-size:11px;font-weight:700;
+  cursor:pointer;overflow:hidden;border-left:3px solid;box-shadow:var(--shadow-sm);line-height:1.3;
+}
+.ev-block .t{font-family:var(--font-mono);font-weight:600;font-size:9.5px;opacity:.85;}
+.agenda-day{margin-bottom:22px;}
+.agenda-day h3{font-size:13px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;}
+
+/* modal / drawer */
+.overlay{position:fixed;inset:0;background:rgba(20,19,16,.42);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;}
+.drawer{
+  width:100%;max-width:440px;max-height:88vh;overflow:auto;background:var(--surface);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow-md);border:1px solid var(--border);
+}
+.drawer-head{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 20px 4px;gap:10px;}
+.drawer-body{padding:14px 20px 20px;}
+.drawer-close{width:30px;height:30px;border-radius:8px;border:none;background:var(--surface-2);color:var(--text-muted);cursor:pointer;flex:none;}
+.dl{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
+.dl-row{display:flex;gap:12px;font-size:13.5px;}
+.dl-row .k{width:96px;flex:none;color:var(--text-faint);font-weight:600;}
+.dl-row .v{flex:1;}
+.drawer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);}
+@media (max-width:640px){
+  .overlay{align-items:flex-end;padding:0;}
+  .drawer{max-width:100%;border-radius:18px 18px 0 0;max-height:92vh;}
+}
+
+/* Capture */
+.capture-hero{text-align:center;padding:8px 0 26px;}
+.capture-hero h1{font-size:24px;margin-bottom:6px;}
+.capture-hero p{color:var(--text-muted);font-size:14px;}
+.capture-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;}
+@media (max-width:700px){.capture-grid{grid-template-columns:1fr 1fr;}}
+.capture-opt{
+  display:flex;flex-direction:column;align-items:center;gap:9px;padding:22px 12px;
+  border:1.5px dashed var(--border-strong);border-radius:var(--radius-md);background:var(--surface);
+  cursor:pointer;color:var(--text);font-weight:700;font-size:13px;text-align:center;
+}
+.capture-opt:hover{border-color:var(--accent);background:var(--accent-tint);color:var(--accent-ink);}
+.capture-opt .ic{width:42px;height:42px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent);}
+.dropzone{
+  border:1.5px dashed var(--border-strong);border-radius:var(--radius-lg);padding:34px 16px;text-align:center;
+  color:var(--text-muted);margin-bottom:26px;font-size:13.5px;
+}
+.paste-box{width:100%;border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:12px 14px;font-family:inherit;font-size:14px;background:var(--surface);color:var(--text);resize:vertical;min-height:90px;}
+.capture-processing{display:flex;flex-direction:column;align-items:center;gap:14px;padding:50px 16px;text-align:center;}
+.spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.found-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.found-head .n{width:34px;height:34px;border-radius:50%;background:var(--good-tint);color:var(--good);display:flex;align-items:center;justify-content:center;flex:none;}
+.extract-card{border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:12px;background:var(--surface);}
+.extract-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;}
+.extract-card .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:13.5px;margin-bottom:4px;}
+@media (max-width:520px){.extract-card .fields{grid-template-columns:1fr;}}
+.extract-card .fields .k{color:var(--text-faint);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;}
+.extract-card .fields .v{font-weight:600;}
+.extract-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+
+/* Inbox */
+.inbox-card{border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);padding:15px 16px;margin-bottom:10px;}
+.inbox-card .top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.inbox-card .src-ic{width:26px;height:26px;border-radius:7px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex:none;}
+.inbox-card .headline{font-weight:700;font-size:14.5px;margin:6px 0 3px;}
+.inbox-card .summary{font-size:13.5px;color:var(--text-muted);margin-bottom:10px;}
+.inbox-card .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.inbox-card .ts{font-size:11.5px;color:var(--text-faint);font-family:var(--font-mono);}
+.inbox-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.conflict-box{margin-top:10px;border:1px solid var(--warn);background:var(--warn-tint);border-radius:var(--radius-sm);padding:12px;}
+.conflict-box .row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-top:1px dashed rgba(150,107,18,.3);}
+.conflict-box .row:first-of-type{border-top:none;}
+.conflict-box .lab{color:var(--warn);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+
+/* Knowledge */
+.search-bar{
+  display:flex;align-items:center;gap:10px;border:1px solid var(--border-strong);background:var(--surface);
+  border-radius:999px;padding:11px 16px;margin-bottom:16px;color:var(--text-muted);
+}
+.search-bar input{border:none;outline:none;background:none;flex:1;font-size:14px;color:var(--text);font-family:inherit;}
+.filter-row{display:flex;gap:8px;overflow-x:auto;margin-bottom:18px;padding-bottom:2px;}
+.doc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+@media (max-width:800px){.doc-grid{grid-template-columns:1fr;}}
+.doc-card{border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);padding:16px;cursor:pointer;}
+.doc-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm);}
+.doc-card .top{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.doc-card .fic{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--accent);flex:none;font-family:var(--font-mono);font-size:10.5px;font-weight:700;}
+.doc-card h3{font-size:14.5px;margin-bottom:3px;}
+.doc-card .meta{font-size:12px;color:var(--text-faint);}
+.doc-card .summary{font-size:13px;color:var(--text-muted);margin-top:8px;}
+
+/* Ask copilot */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 130px);}
+@media (max-width:1023px){.chat-wrap{height:calc(100vh - 200px);}}
+.chat-scroll{flex:1;overflow-y:auto;padding:6px 2px 16px;display:flex;flex-direction:column;gap:14px;}
+.msg{max-width:74%;}
+.msg.user{align-self:flex-end;}
+.msg.bot{align-self:flex-start;}
+.msg .bubble{padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.5;}
+.msg.user .bubble{background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
+.msg.bot .bubble{background:var(--surface-2);color:var(--text);border-bottom-left-radius:4px;}
+@media (max-width:700px){.msg{max-width:88%;}}
+.ans-card{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-md);padding:12px 14px;margin-top:8px;}
+.ans-card + .ans-card{margin-top:8px;}
+.ans-card .t{font-weight:700;font-size:13.5px;}
+.ans-card .m{font-size:12.5px;color:var(--text-muted);margin-top:2px;}
+.ans-src{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-faint);}
+.starter-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;}
+@media (max-width:600px){.starter-grid{grid-template-columns:1fr;}}
+.starter{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius-md);padding:11px 13px;text-align:left;font-size:13px;cursor:pointer;color:var(--text);}
+.starter:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-tint);}
+.chat-input-row{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border);}
+.chat-input-row input{flex:1;border:1px solid var(--border-strong);border-radius:999px;padding:11px 16px;font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;}
+.chat-input-row input:focus{border-color:var(--accent);}
+.send-btn{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;}
+
+/* Sources */
+.trust-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
+.trust-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;background:var(--surface-2);font-size:13px;}
+.trust-row .rank{width:20px;height:20px;border-radius:6px;background:var(--surface-3);color:var(--text-muted);font-family:var(--font-mono);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;}
+.source-row{display:flex;align-items:center;gap:14px;padding:15px 16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);margin-bottom:10px;flex-wrap:wrap;}
+.source-row .sic{width:38px;height:38px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--text-muted);flex:none;}
+.source-row .info{flex:1;min-width:180px;}
+.source-row .name{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:8px;}
+.source-row .meta{font-size:12.5px;color:var(--text-faint);margin-top:2px;}
+.source-row .accessed{font-size:12px;color:var(--text-muted);margin-top:6px;}
+.source-row .btns{display:flex;gap:8px;flex:none;}
+.status-dot{width:7px;height:7px;border-radius:50%;}
+.status-dot.on{background:var(--good);}
+.status-dot.off{background:var(--text-faint);}
+
+.toast-wrap{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;}
+@media (max-width:1023px){.toast-wrap{bottom:78px;}}
+.toast{background:var(--text);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow-md);display:flex;align-items:center;gap:8px;animation:toastin .18s ease;}
+@keyframes toastin{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+.settings-group{margin-bottom:26px;}
+.settings-group h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="overlays"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ============================================================
+   CAMPUS COPILOT — demo build. Fully client-side, mock AI only.
+   "Never miss what matters." — single-file static demo.
+   ============================================================ */
+(function(){
+"use strict";
+
+/* ---------- fixed demo clock ----------
+   Keeps the dashboard story deterministic (matches the spec's own
+   "Strategy 11:30, starts in 34 minutes" example) regardless of the
+   viewer's real-world clock. */
+var DEMO_NOW = new Date('2026-09-22T10:56:00+05:30');
+
+var COURSES = [
+  {id:'strat', name:'Competitive Strategy', code:'STRAT-2', professor:'Prof. Menon', color:'#3454D1'},
+  {id:'fin',   name:'Corporate Finance',    code:'FIN-2',   professor:'Prof. Kapadia', color:'#966B12'},
+  {id:'mktg',  name:'Marketing',            code:'MKTG-2',  professor:'Prof. Rao', color:'#B23B2E'},
+  {id:'lead',  name:'Leadership',           code:'LEAD-2',  professor:'Prof. D’Souza', color:'#1C7C4C'},
+  {id:'ops',   name:'Operations',           code:'OPS-2',   professor:'Prof. Iyer', color:'#2C6E8E'}
+];
+function course(id){ return COURSES.find(function(c){return c.id===id;}) || {name:id,color:'#6B6A62'}; }
+
+/* ---------- seed events ---------- */
+var EVENTS = [
+  {id:'ev-lead-class', category:'class', title:'Leadership', course:'lead',
+   description:'Session 14 — Leading through ambiguity. Case discussion, cold calls likely.',
+   start:'2026-09-22T10:00:00+05:30', end:'2026-09-22T11:15:00+05:30', deadline:null,
+   location:'AC4', priority:'med', confidence:1, status:'active',
+   sourceType:'calendar', sourceName:'Outlook Calendar', sourceDetail:'Synced from your ISB calendar', sourceUrl:'#',
+   actionRequired:'Attend class', history:[]},
+
+  {id:'ev-strat-class', category:'class', title:'Competitive Strategy', course:'strat',
+   description:'Session 9 — Platform competition and network effects.',
+   start:'2026-09-22T11:30:00+05:30', end:'2026-09-22T12:45:00+05:30', deadline:null,
+   location:'AC8', priority:'med', confidence:1, status:'active',
+   sourceType:'calendar', sourceName:'Outlook Calendar', sourceDetail:'Synced from your ISB calendar', sourceUrl:'#',
+   actionRequired:'Attend class', history:[]},
+
+  {id:'ev-fin-meet', category:'event', title:'Finance group meeting', course:'fin',
+   description:'Prep session for the valuation submission with your study group.',
+   start:'2026-09-22T16:00:00+05:30', end:'2026-09-22T17:00:00+05:30', deadline:null,
+   location:'Library, Discussion Rm 3', priority:'low', confidence:0.9, status:'active',
+   sourceType:'email', sourceName:'Outlook — study group thread', sourceDetail:'From: Ananya (group member)', sourceUrl:'#',
+   actionRequired:'Join meeting', history:[]},
+
+  {id:'ev-mktg-assign', category:'assignment', title:'Marketing assignment', course:'mktg',
+   description:'Positioning memo for the Kissan “Upar Se” brief.',
+   start:null, end:null, deadline:'2026-09-22T23:59:00+05:30',
+   location:null, priority:'high', confidence:1, status:'active',
+   sourceType:'lms', sourceName:'Official LMS', sourceDetail:'Marketing — Assignments folder', sourceUrl:'#',
+   actionRequired:'Submit assignment', history:[]},
+
+  {id:'ev-fin-assign', category:'deadline', title:'Finance Assignment', course:'fin',
+   description:'DCF valuation submission, individual.',
+   start:null, end:null, deadline:'2026-09-24T23:59:00+05:30',
+   location:null, priority:'high', confidence:1, status:'active',
+   sourceType:'lms', sourceName:'Official LMS', sourceDetail:'Corporate Finance — Assignments', sourceUrl:'#',
+   actionRequired:'Submit assignment', history:[]},
+
+  {id:'ev-strat-reflect', category:'deadline', title:'Strategy Reflection', course:'strat',
+   description:'750-word reflection on the platform competition case.',
+   start:null, end:null, deadline:'2026-09-25T17:00:00+05:30',
+   location:null, priority:'med', confidence:0.96, status:'active',
+   sourceType:'email', sourceName:'Prof. Menon', sourceDetail:'Email — 21 Sep, 9:14 PM', sourceUrl:'#',
+   actionRequired:'Submit reflection', history:[]},
+
+  {id:'ev-mktg-case', category:'deadline', title:'Marketing Case', course:'mktg',
+   description:'Group submission: go-to-market note for the Kissan case.',
+   start:null, end:null, deadline:'2026-09-25T23:59:00+05:30',
+   location:null, priority:'high', confidence:0.9, status:'active', conflict:true,
+   sourceType:'email', sourceName:'Prof. Rao', sourceDetail:'Email — 19 Sep, 8:02 AM', sourceUrl:'#',
+   actionRequired:'Submit group case',
+   history:[
+     {field:'deadline', prev:null, next:'Fri 25 Sep, 11:59 PM', source:'Prof. Rao — Outlook email', sourceType:'email', date:'2026-09-19T08:02:00+05:30'},
+     {field:'deadline', prev:'Fri 25 Sep, 11:59 PM', next:'Sun 27 Sep, 11:59 PM', source:'WhatsApp screenshot — forwarded by classmate', sourceType:'whatsapp', date:'2026-09-21T19:40:00+05:30', pending:true}
+   ]},
+
+  {id:'ev-lead-case', category:'reading', title:'Leadership case prep', course:'lead',
+   description:'Read “Leading in Crisis” ahead of Thursday’s session.',
+   start:null, end:null, deadline:'2026-09-24T09:00:00+05:30',
+   location:null, priority:'med', confidence:1, status:'active',
+   sourceType:'lms', sourceName:'Official LMS', sourceDetail:'Leadership — Readings', sourceUrl:'#',
+   actionRequired:'Read case', history:[]},
+
+  {id:'ev-ops-quiz', category:'quiz', title:'Operations Quiz 2', course:'ops',
+   description:'Covers inventory models and EOQ.',
+   start:'2026-09-29T09:00:00+05:30', end:'2026-09-29T09:30:00+05:30', deadline:null,
+   location:'AC5', priority:'high', confidence:1, status:'active',
+   sourceType:'lms', sourceName:'Official LMS', sourceDetail:'Operations — Assessments', sourceUrl:'#',
+   actionRequired:'Prepare for quiz', history:[]},
+
+  {id:'ev-strat-exam', category:'exam', title:'Strategy Midterm', course:'strat',
+   description:'Closed-book, covers Sessions 1–10.',
+   start:'2026-10-02T14:00:00+05:30', end:'2026-10-02T16:00:00+05:30', deadline:null,
+   location:'Exam Hall B', priority:'high', confidence:1, status:'active',
+   sourceType:'calendar', sourceName:'Outlook Calendar', sourceDetail:'Synced from your ISB calendar', sourceUrl:'#',
+   actionRequired:'Prepare for exam', history:[]}
+];
+
+/* ---------- seed documents (Knowledge) ---------- */
+var DOCS = [
+  {id:'doc1', title:'Platform Competition & Network Effects — Slides', course:'strat', fileType:'PPTX',
+   sourceType:'lms', sourceName:'Official LMS', date:'2026-09-20',
+   summary:'Session 9 deck: two-sided markets, winner-take-all dynamics, and three mini-cases on network effects in Indian platforms.'},
+  {id:'doc2', title:'Kissan “Upar Se” Case Note', course:'mktg', fileType:'PDF',
+   sourceType:'lms', sourceName:'Official LMS', date:'2026-09-18',
+   summary:'Background on the dry-finishing topper launch, category context, and the positioning question the case asks teams to resolve.'},
+  {id:'doc3', title:'DCF Valuation — Working Notes', course:'fin', fileType:'DOCX',
+   sourceType:'upload', sourceName:'Student supplied', date:'2026-09-19',
+   summary:'Your own notes on WACC assumptions and terminal value approach for the valuation assignment.'},
+  {id:'doc4', title:'Leading in Crisis (HBR reading)', course:'lead', fileType:'PDF',
+   sourceType:'lms', sourceName:'Official LMS', date:'2026-09-15',
+   summary:'Framework for decision-making under ambiguity; three short cases used for Thursday’s cold-call discussion.'},
+  {id:'doc5', title:'Inventory Models Cheat-Sheet', course:'ops', fileType:'PDF',
+   sourceType:'upload', sourceName:'Student supplied', date:'2026-09-17',
+   summary:'EOQ, reorder point and safety stock formulas with worked examples, ahead of Quiz 2.'},
+  {id:'doc6', title:'Strategy Email Thread — Reflection Prompt', course:'strat', fileType:'Email',
+   sourceType:'email', sourceName:'Prof. Menon', date:'2026-09-21',
+   summary:'Prof. Menon’s prompt for the 750-word reflection, plus grading rubric attached as PDF.'}
+];
+
+/* ---------- seed inbox (independent of Capture demo) ---------- */
+var INBOX = [
+  {id:'ib1', ref:'ev-mktg-case', sourceType:'email', category:'Deadline', headline:'Marketing Case deadline may have changed',
+   summary:'A forwarded WhatsApp message claims the submission moved from Friday to Sunday. The original email still says Friday.',
+   ts:'2026-09-21T19:41:00+05:30', confidence:0.62, conflict:true},
+  {id:'ib2', sourceType:'lms', category:'Academic', headline:'3 new readings added to Competitive Strategy',
+   summary:'Session 10–12 readings were published to the LMS this morning.',
+   ts:'2026-09-22T07:05:00+05:30', confidence:1, action:'View in Knowledge'},
+  {id:'ib3', sourceType:'email', category:'Placement/Career', headline:'Placement Cell: pre-placement talk sign-up',
+   summary:'Sign-ups for Thursday’s pre-placement talk close tomorrow at 6 PM.',
+   ts:'2026-09-22T08:12:00+05:30', confidence:0.88, action:'View email'},
+  {id:'ib4', sourceType:'lms', category:'Class change', headline:'Operations Quiz 2 room confirmed: AC5',
+   summary:'LMS calendar now shows AC5 for next Tuesday’s quiz (was previously unassigned).',
+   ts:'2026-09-21T14:30:00+05:30', confidence:0.97, action:'View in Calendar'}
+];
+
+/* ---------- sources & trust hierarchy ---------- */
+var TRUST_ORDER = ['Official university/LMS information','Professor/TA email','Calendar','Official university webpage','Student-uploaded document','Local device folder','WhatsApp forward','AI inference'];
+var SOURCES = [
+  {id:'src1', name:'Microsoft Outlook', type:'email', status:'connected', lastSync:'2026-09-22T09:40:00+05:30', accessed:'Sender, subject, date, body and attachments from your inbox (last 30 days, academic folders only)'},
+  {id:'src2', name:'Outlook Calendar', type:'calendar', status:'connected', lastSync:'2026-09-22T09:40:00+05:30', accessed:'Event titles, times, locations, organizers and descriptions'},
+  {id:'src3', name:'SharePoint / LMS', type:'lms', status:'connected', lastSync:'2026-09-22T06:00:00+05:30', accessed:'Course documents and folders you are already authorized to access'},
+  {id:'src4', name:'WhatsApp Forwarding', type:'whatsapp', status:'manual', lastSync:null, accessed:'Only messages you explicitly paste or forward — no group access'},
+  {id:'src5', name:'Manual Upload', type:'upload', status:'connected', lastSync:'2026-09-21T19:40:00+05:30', accessed:'Files, screenshots and links you add yourself'},
+  {id:'src6', name:'Local Folder Sync', type:'folder', status:'disconnected', lastSync:null, folderName:null, fileCount:0, accessed:'Nothing until you connect a folder — then file names, folder structure and (for text files) a short preview, read live in your own browser from a folder you pick on this device. Files are indexed locally and are never uploaded anywhere.'}
+];
+
+/* ---------- app state ---------- */
+var state = {
+  stage: 'login',          // login | onboarding | app
+  profilePic: null,        // data URL of the user's uploaded profile photo
+  obStep: 1,
+  obSources: {microsoft:true, calendar:true, sharepoint:true},
+  obCourses: {strat:true, fin:true, mktg:true, lead:true, ops:false},
+  notifPrefs: {deadlineReminders:true, scheduleChangeAlerts:true, morningBrief:true, newMaterial:false},
+  itemStatus: {},           // id -> 'done' | 'snoozed'
+  capture: {stage:'options', scenario:null, items:null},
+  chat: [],
+  drawer: null,
+  calWeekOffset: 0
+};
+
+/* ================= ICONS ================= */
+function ic(name, size){
+  size = size || 20;
+  var p = {home:'<path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9a1 1 0 0 0 1 1h3v-6h4v6h3a1 1 0 0 0 1-1v-9"/>',
+  today:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none"/>',
+  calendar:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/>',
+  book:'<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3V4Z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>',
+  chat:'<path d="M4 5h16v11H9l-4 4V5Z"/><path d="M8 9h8M8 12h5"/>',
+  inbox:'<path d="M4 5h16l-1 12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 5Z"/><path d="M4 11h4.5a2 2 0 0 1 1.9 1.4c.3.9 1.1 1.6 2.1 1.6h.5c1 0 1.8-.7 2.1-1.6A2 2 0 0 1 16.5 11H20"/>',
+  camera:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7 9.7 4h4.6L16 7"/><circle cx="12" cy="13.5" r="3.4"/>',
+  database:'<ellipse cx="12" cy="5.5" rx="7" ry="2.6"/><path d="M5 5.5V18c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6V5.5"/><path d="M5 11.8c0 1.4 3.1 2.6 7 2.6s7-1.2 7-2.6"/>',
+  folder:'<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V19a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V10c.1.7.6 1.3 1.6 1.4H20a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.4 1.6Z"/>',
+  more:'<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
+  chevronLeft:'<path d="M15 5 8 12l7 7"/>', chevronRight:'<path d="M9 5l7 7-7 7"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>', check:'<path d="M5 13l4 4L19 7"/>',
+  alert:'<path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  pin:'<path d="M12 21s7-6.1 7-11.5a7 7 0 0 0-14 0C5 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.4"/>',
+  upload:'<path d="M12 16V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+  image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M21 16l-5.5-5.5L6 20"/>',
+  file:'<path d="M7 3h7l4 4v14H7V3Z"/><path d="M14 3v4h4"/>',
+  link:'<path d="M9.5 14.5 14.5 9.5"/><path d="M11 7.5 12.6 6a3.8 3.8 0 0 1 5.4 5.4L16.5 13"/><path d="M13 16.5 11.4 18a3.8 3.8 0 0 1-5.4-5.4L7.5 11"/>',
+  type:'<path d="M5 5h14M12 5v14"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  filter:'<path d="M4 5h16M7 12h10M10 19h4"/>',
+  bell:'<path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 14 6 10Z"/><path d="M10 19a2 2 0 0 0 4 0"/>',
+  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 6 8 6.5L20 6"/>',
+  refresh:'<path d="M20 11A8 8 0 0 0 6.3 6.3L4 8.6"/><path d="M4 4v4.6h4.6"/><path d="M4 13a8 8 0 0 0 13.7 4.7L20 15.4"/><path d="M20 20v-4.6h-4.6"/>',
+  trash:'<path d="M5 7h14M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-.8 12.2A2 2 0 0 1 14.2 21H9.8a2 2 0 0 1-2-1.8L7 7"/>',
+  external:'<path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M17 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
+  arrowRight:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  sparkle:'<path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/>',
+  ms:'<path d="M4 4h7.2v7.2H4zM12.8 4H20v7.2h-7.2zM4 12.8h7.2V20H4zM12.8 12.8H20V20h-7.2z" fill="currentColor" stroke="none"/>'
+  };
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(p[name]||p.sparkle)+'</svg>';
+}
+
+/* ================= HELPERS ================= */
+function pad(n){return n<10?'0'+n:''+n;}
+function d(iso){ return new Date(iso); }
+function fmtTime(iso){ var x=d(iso); var h=x.getHours(), m=x.getMinutes(); var ap=h>=12?'PM':'AM'; var hh=h%12; if(hh===0)hh=12; return hh+':'+pad(m)+' '+ap; }
+function fmtDayShort(iso){ return d(iso).toLocaleDateString('en-US',{weekday:'short', day:'numeric', month:'short'}); }
+function fmtDayLong(iso){ return d(iso).toLocaleDateString('en-US',{weekday:'long', day:'numeric', month:'long'}); }
+function sameDay(a,b){ a=d(a);b=d(b); return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function minutesBetween(a,b){ return Math.round((d(b)-d(a))/60000); }
+function nowIso(){ return DEMO_NOW.toISOString(); }
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+
+function courseBadge(cid){
+  if(!cid) return '<span class="badge badge-course">Local file</span>';
+  var c = course(cid);
+  return '<span class="badge badge-course"><span style="width:7px;height:7px;border-radius:50%;background:'+c.color+'"></span>'+esc(c.name)+'</span>';
+}
+function confPct(c){ return Math.round(c*100); }
+function confLabel(c){ return c>=0.9?'High confidence':(c>=0.7?'Medium confidence':'Low confidence — please check'); }
+function confBadge(c){
+  var cls = c>=0.9?'badge-conf-high':(c>=0.7?'badge-conf-med':'badge-conf-low');
+  return '<span class="badge '+cls+'">'+confLabel(c)+' · '+confPct(c)+'%</span>';
+}
+function priorityBadge(p){
+  if(!p) return '';
+  var map={high:['badge-priority-high','High priority'],med:['badge-priority-med','Medium priority'],low:['badge-priority-low','Low priority']};
+  var v = map[p]||map.low;
+  return '<span class="badge '+v[0]+'">'+v[1]+'</span>';
+}
+function sourceIcon(type){
+  var m = {email:'mail', calendar:'calendar', lms:'book', whatsapp:'chat', upload:'upload', website:'link', ai:'sparkle', folder:'folder'};
+  return ic(m[type]||'file', 16);
+}
+function sourceLabel(ev){
+  if(ev.sourceType==='lms') return 'Confirmed — Official LMS';
+  if(ev.sourceType==='calendar') return 'Confirmed — Calendar';
+  if(ev.sourceType==='email') return 'Confirmed — Professor/TA email';
+  if(ev.sourceType==='whatsapp') return 'Student supplied — WhatsApp screenshot';
+  if(ev.sourceType==='upload') return 'Student supplied — upload';
+  if(ev.sourceType==='folder') return 'Local file — synced from your device';
+  return 'AI inference';
+}
+function categoryLabel(cat){
+  var m={class:'Class', 'class-change':'Class change', assignment:'Assignment', deadline:'Deadline', quiz:'Quiz', exam:'Exam', reading:'Reading', announcement:'Announcement', event:'Event', administrative:'Administrative', placement:'Placement/Career', club:'Club'};
+  return m[cat]||'Other';
+}
+function categoryDotColor(cat){
+  var m={class:'var(--info)', assignment:'var(--critical)', deadline:'var(--critical)', quiz:'var(--warn)', exam:'var(--critical)', reading:'var(--good)', event:'var(--accent)'};
+  return m[cat]||'var(--text-faint)';
+}
+
+function toast(msg, icon){
+  var wrap = document.getElementById('toastWrap');
+  var el = document.createElement('div');
+  el.className='toast';
+  el.innerHTML = ic(icon||'check',15)+'<span>'+esc(msg)+'</span>';
+  wrap.appendChild(el);
+  setTimeout(function(){ el.style.transition='opacity .25s'; el.style.opacity='0'; setTimeout(function(){el.remove();},250); }, 2800);
+}
+
+/* ---------- profile photo (avatar) ---------- */
+function avatarHtml(size, letter){
+  size = size||28;
+  if(state.profilePic){
+    return '<span class="avatar" style="width:'+size+'px;height:'+size+'px;padding:0;overflow:hidden">'+
+      '<img src="'+state.profilePic+'" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'+
+    '</span>';
+  }
+  return '<span class="avatar" style="width:'+size+'px;height:'+size+'px">'+(letter||'R')+'</span>';
+}
+window.handleProfilePicFile = function(input){
+  var f = input.files && input.files[0];
+  if(!f) return;
+  if(!/^image\//.test(f.type)){ toast('Please choose an image file','alert'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    state.profilePic = e.target.result;
+    toast('Profile photo updated','check');
+    render();
+  };
+  reader.readAsDataURL(f);
+};
+
+function isDone(id){ return state.itemStatus[id]==='done'; }
+function isSnoozed(id){ return state.itemStatus[id]==='snoozed'; }
+function toggleDone(id){ state.itemStatus[id] = isDone(id)?undefined:'done'; toast(isDone(id)?'Marked done':'Reopened','check'); render(); }
+function snoozeItem(id){ state.itemStatus[id]='snoozed'; toast('We’ll remind you again later','clock'); render(); }
+
+/* deadlines/starts within next N days, excluding done */
+function upcoming(days, opts){
+  opts = opts||{};
+  var end = new Date(DEMO_NOW.getTime()+days*86400000);
+  return EVENTS.filter(function(e){
+    var t = e.deadline || e.start;
+    if(!t) return false;
+    var dt = d(t);
+    if(dt < DEMO_NOW - 86400000*0 && dt < DEMO_NOW) { /* allow today items already started for deadlines today */ }
+    if(dt > end) return false;
+    if(opts.category && e.category!==opts.category) return false;
+    if(opts.deadlineOnly && !e.deadline) return false;
+    return true;
+  }).sort(function(a,b){ return d(a.deadline||a.start) - d(b.deadline||b.start); });
+}
+function todaysEvents(){
+  return EVENTS.filter(function(e){ var t=e.start||e.deadline; return t && sameDay(t, DEMO_NOW); })
+    .sort(function(a,b){ return d(a.start||a.deadline)-d(b.start||b.deadline); });
+}
+
+/* ================= ROUTER ================= */
+function go(route){ location.hash = route; }
+window.go = go;
+
+function render(){
+  var app = document.getElementById('app');
+  if(state.stage==='login'){ app.innerHTML = screenLogin(); return; }
+  if(state.stage==='onboarding'){ app.innerHTML = screenOnboarding(); return; }
+  var route = (location.hash||'#/home').replace('#/','');
+  var routeBase = route.split('?')[0];
+  var map = {home:renderHome, today:renderToday, calendar:renderCalendar, knowledge:renderKnowledge, ask:renderAsk, inbox:renderInbox, capture:renderCapture, sources:renderSources, settings:renderSettings, more:renderMore};
+  var fn = map[routeBase] || renderHome;
+  app.innerHTML = shell(routeBase, fn());
+  renderDrawer();
+  var scroller = document.querySelector('.chat-scroll');
+  if(scroller) scroller.scrollTop = scroller.scrollHeight;
+}
+window.addEventListener('hashchange', render);
+
+/* ================= SHELL (sidebar / topbar / bottom nav) ================= */
+var NAV = [
+  {id:'home', label:'Home', icon:'home'},
+  {id:'today', label:'Today', icon:'today'},
+  {id:'calendar', label:'Calendar', icon:'calendar'},
+  {id:'knowledge', label:'Knowledge', icon:'book'},
+  {id:'ask', label:'Ask Copilot', icon:'chat'},
+  {id:'inbox', label:'Inbox', icon:'inbox'},
+  {id:'capture', label:'Capture', icon:'camera'},
+  {id:'sources', label:'Sources', icon:'database'},
+  {id:'settings', label:'Settings', icon:'settings'}
+];
+var BOTTOM = [
+  {id:'home', label:'Home', icon:'home'},
+  {id:'calendar', label:'Calendar', icon:'calendar'},
+  {id:'capture', label:'Capture', icon:'camera', primary:true},
+  {id:'ask', label:'Ask', icon:'chat'},
+  {id:'more', label:'More', icon:'more'}
+];
+var TITLES = {home:'Home', today:'Today', calendar:'Calendar', knowledge:'Knowledge', ask:'Ask Copilot', inbox:'Inbox', capture:'Capture', sources:'Sources & Privacy', settings:'Settings', more:'More'};
+
+function shell(active, inner){
+  var sidebarItems = NAV.map(function(n){
+    return '<button class="nav-item '+(n.id===active?'active':'')+' '+(n.id==='capture'?'capture':'')+'" onclick="go(\'#/'+n.id+'\')">'+ic(n.icon,18)+'<span>'+n.label+'</span></button>';
+  }).join('');
+  var bottomItems = BOTTOM.map(function(n){
+    var isActive = n.id===active || (n.id==='more' && !['home','calendar','capture','ask'].includes(active));
+    if(n.primary){
+      return '<button class="bn-item primary" onclick="go(\'#/'+n.id+'\')"><span class="bn-ic">'+ic(n.icon,18)+'</span>'+n.label+'</button>';
+    }
+    return '<button class="bn-item '+(isActive?'active':'')+'" onclick="go(\'#/'+n.id+'\')">'+ic(n.icon,20)+n.label+'</button>';
+  }).join('');
+
+  return ''+
+  '<div class="app-shell">'+
+    '<aside class="sidebar">'+
+      '<div class="sidebar-brand"><span class="mark">'+ic('sparkle',15)+'</span><span class="wordmark">Campus Copilot</span></div>'+
+      '<nav class="nav-list">'+sidebarItems+'</nav>'+
+      '<div class="sidebar-foot"><div class="user-pill" onclick="go(\'#/settings\')">'+avatarHtml(28,'R')+'<div><div class="un">Rangeet</div><div class="ue">Demo Mode · ISB</div></div></div></div>'+
+    '</aside>'+
+    '<div class="main-col">'+
+      '<div class="topbar"><span class="tb-title">'+TITLES[active]+'</span><button class="icon-btn" onclick="go(\'#/settings\')">'+ic('settings',17)+'</button></div>'+
+      '<main class="content">'+inner+'</main>'+
+    '</div>'+
+  '</div>'+
+  '<nav class="bottom-nav">'+bottomItems+'</nav>';
+}
+
+/* ================= SCREEN 1 — LOGIN ================= */
+function screenLogin(){
+  return '<div class="auth-wrap"><div class="auth-card">'+
+    '<div class="auth-logo"><span class="mark">'+ic('sparkle',18)+'</span><span class="wordmark">Campus Copilot</span></div>'+
+    '<p class="auth-tag">Never miss what matters.</p>'+
+    '<div class="pfp-upload">'+
+      '<label for="pfpInput" class="pfp-circle" title="Add a profile photo">'+(state.profilePic?'<img src="'+state.profilePic+'" alt="">':ic('camera',20))+'</label>'+
+      '<input id="pfpInput" type="file" accept="image/*" class="visually-hidden" onchange="handleProfilePicFile(this)">'+
+      '<label for="pfpInput" class="pfp-label">'+(state.profilePic?'Looking good — tap to change':'Add a profile photo (optional)')+'</label>'+
+    '</div>'+
+    '<div class="auth-actions">'+
+      '<button class="btn btn-primary" onclick="loginMicrosoft()">'+ic('ms',16)+' Continue with Microsoft</button>'+
+      '<button class="btn btn-secondary" onclick="enterDemo()">Enter Demo Mode</button>'+
+    '</div>'+
+    '<p class="auth-fine">Campus Copilot never asks for your Microsoft password. Sign-in uses OAuth, and each student’s data stays isolated from every other student’s.</p>'+
+  '</div></div>';
+}
+window.loginMicrosoft = function(){ toast('Institutional Microsoft sign-in isn’t available in this demo — continuing in Demo Mode', 'ms'); enterDemo(); };
+window.enterDemo = function(){ state.stage='onboarding'; state.obStep=1; render(); };
+
+/* ================= SCREEN 2 — ONBOARDING ================= */
+function screenOnboarding(){
+  var step = state.obStep;
+  var dots = [1,2,3].map(function(i){return '<span class="dot '+(i<=step?'on':'')+'"></span>';}).join('');
+  var body='';
+  if(step===1){
+    body = '<div class="onboard-head"><h1>Connect information sources</h1><p>Campus Copilot pulls from what you already use — nothing is shared until you connect it.</p></div>'+
+    '<div class="source-grid">'+
+      sourceOnboardCard('Microsoft Outlook','mail','microsoft', state.obSources.microsoft)+
+      sourceOnboardCard('Calendar','calendar','calendar', state.obSources.calendar)+
+      sourceOnboardCard('SharePoint / LMS','book','sharepoint', state.obSources.sharepoint)+
+      '<div class="source-card"><div class="row"><span class="ic">'+ic('chat',16)+'</span><div><div class="name">WhatsApp Forwarding</div><div class="sub">Coming soon</div></div></div></div>'+
+      '<div class="source-card"><div class="row"><span class="ic" style="color:var(--good)">'+ic('upload',16)+'</span><div><div class="name">Manual Upload</div><div class="sub">Always available</div></div></div></div>'+
+    '</div>'+
+    '<div class="onboard-actions"><span></span><button class="btn btn-primary" style="width:auto;padding-left:22px;padding-right:22px" onclick="obNext()">Continue '+ic('arrowRight',15)+'</button></div>';
+  } else if(step===2){
+    body = '<div class="onboard-head"><h1>Select your courses</h1><p>We’ll only surface deadlines and material for courses you pick.</p></div>'+
+    '<div class="course-grid">'+ COURSES.map(function(c){
+      var on = state.obCourses[c.id];
+      return '<button class="chip '+(on?'on':'')+'" onclick="toggleObCourse(\''+c.id+'\')">'+(on?ic('check',13):'')+' '+esc(c.name)+'</button>';
+    }).join('') +'</div>'+
+    '<div class="onboard-actions"><button class="btn btn-secondary" style="width:auto;padding-left:18px;padding-right:18px" onclick="obBack()">Back</button><button class="btn btn-primary" style="width:auto;padding-left:22px;padding-right:22px" onclick="obNext()">Continue '+ic('arrowRight',15)+'</button></div>';
+  } else {
+    body = '<div class="onboard-head"><h1>Notification preferences</h1><p>You can change these any time in Settings.</p></div>'+
+    '<div class="pref-list">'+
+      prefRow('deadlineReminders','Deadline reminders','24 hours and 2 hours before')+
+      prefRow('scheduleChangeAlerts','Schedule change alerts','Room, time or cancellation changes')+
+      prefRow('morningBrief','Morning brief','A short summary each morning')+
+      prefRow('newMaterial','New academic material','When readings or slides are added')+
+    '</div>'+
+    '<div class="onboard-actions"><button class="btn btn-secondary" style="width:auto;padding-left:18px;padding-right:18px" onclick="obBack()">Back</button><button class="btn btn-primary" style="width:auto;padding-left:22px;padding-right:22px" onclick="finishOnboarding()">Go to my dashboard '+ic('arrowRight',15)+'</button></div>';
+  }
+  return '<div class="onboard-wrap"><div class="onboard-card"><div class="onboard-steps">'+dots+'</div>'+body+'</div></div>';
+}
+function sourceOnboardCard(name, icon, key, connected){
+  return '<button class="source-card" style="text-align:left;cursor:pointer" onclick="toggleObSource(\''+key+'\')">'+
+    '<div class="row"><span class="ic" style="'+(connected?'color:var(--good)':'')+'">'+ic(icon,16)+'</span>'+
+    '<div><div class="name">'+name+'</div><div class="sub">'+(connected?'Connected':'Connect')+'</div></div></div></button>';
+}
+function prefRow(key, title, sub){
+  var on = state.notifPrefs[key];
+  return '<div class="pref-row"><div><div class="t">'+title+'</div><div class="s">'+sub+'</div></div><button class="switch '+(on?'on':'')+'" onclick="togglePref(\''+key+'\')"><span class="knob"></span></button></div>';
+}
+window.toggleObSource = function(k){ state.obSources[k] = !state.obSources[k]; render(); };
+window.toggleObCourse = function(k){ state.obCourses[k] = !state.obCourses[k]; render(); };
+window.togglePref = function(k){ state.notifPrefs[k] = !state.notifPrefs[k]; render(); toast('Preference updated','check'); };
+window.obNext = function(){ state.obStep = Math.min(3, state.obStep+1); render(); };
+window.obBack = function(){ state.obStep = Math.max(1, state.obStep-1); render(); };
+window.finishOnboarding = function(){ state.stage='app'; location.hash = '#/home'; render(); toast('Welcome to Campus Copilot, Rangeet','sparkle'); };
+
+/* ================= HOME ================= */
+function renderHome(){
+  var next = upcoming(2).find(function(e){ return d(e.start||e.deadline) > DEMO_NOW && !isDone(e.id); });
+  var today = todaysEvents();
+  var attention = EVENTS.filter(function(e){ return e.deadline && sameDay(e.deadline, DEMO_NOW) && !isDone(e.id); });
+  var changes = recentChanges();
+  var newMaterial = DOCS.filter(function(doc){ return doc.date==='2026-09-20'||doc.date==='2026-09-22'; });
+
+  var left = ''+
+  '<div class="section"><h1 style="margin-bottom:2px">Good '+dayPart()+', Rangeet</h1><p class="sub" style="color:var(--text-muted);font-size:14px">'+fmtDayLong(nowIso())+'</p></div>'+
+  (next? '<div class="section"><div class="next-up"><div><div class="lbl">Next up</div><div class="course">'+esc(course(next.course).name)+'</div><div class="meta">'+fmtTime(next.start||next.deadline)+' · '+(next.location||'—')+'</div></div><div class="countdown">Starts in '+minutesBetween(DEMO_NOW,next.start)+' min</div></div></div>' : '')+
+  '<div class="section"><div class="section-title"><h2>Today</h2><span class="count">'+today.length+' items</span></div>'+
+    (today.length? today.map(function(e){return dayCard(e);}).join('') : emptyState('calendar','Nothing scheduled today','Enjoy the quiet — or check Capture to log something.')) +
+  '</div>'+
+  '<div class="section"><div class="section-title"><h2>Needs attention</h2></div>'+
+    (attention.length? attention.map(function(e){return attnCard(e);}).join('') : emptyState('check','You’re all caught up','Nothing urgent needs attention right now.')) +
+  '</div>'+
+  '<div class="section"><div class="section-title"><h2>Recent changes</h2></div>'+
+    (changes.length? changes.map(changeCard).join('') : emptyState('refresh','No recent changes','Changes detected from your sources will show up here.')) +
+  '</div>';
+
+  var right = ''+
+  '<div class="rail-card"><h3>Upcoming</h3>'+ upcoming(7).slice(0,5).map(function(e){
+      return '<div class="rail-item" style="cursor:pointer" onclick="openDrawer(\''+e.id+'\')"><span class="t">'+esc(e.title)+'</span><span class="d">'+fmtDayShort(e.deadline||e.start)+'</span></div>';
+    }).join('') + '</div>'+
+  '<div class="rail-card"><h3>New material</h3>'+ (newMaterial.length? newMaterial.map(function(doc){
+      return '<div class="rail-item"><span class="t">'+esc(doc.title)+'</span><span class="d">'+courseShort(doc.course)+'</span></div>';
+    }).join('') : '<div class="rail-item"><span class="t" style="color:var(--text-faint)">Nothing new</span></div>') + '</div>'+
+  '<div class="rail-card"><h3>Your courses</h3>'+ COURSES.filter(function(c){return state.obCourses[c.id];}).map(function(c){
+      return '<div class="rail-item"><span class="t" style="display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:'+c.color+'"></span>'+esc(c.name)+'</span></div>';
+    }).join('') + '</div>';
+
+  return '<div class="content-with-rail"><div>'+left+'</div><div>'+right+'</div></div>';
+}
+function dayPart(){ var h=DEMO_NOW.getHours(); return h<12?'morning':(h<17?'afternoon':'evening'); }
+function courseShort(cid){ if(!cid) return 'Local file'; var c=course(cid); return c.code||c.name; }
+function emptyState(icon,title,sub){ return '<div class="empty-state"><div class="ic">'+ic(icon,30)+'</div><h3>'+title+'</h3><p>'+sub+'</p></div>'; }
+
+function dayCard(e){
+  var t = e.start ? fmtTime(e.start) : fmtTime(e.deadline);
+  var done = isDone(e.id);
+  return '<div class="day-card" style="'+(done?'opacity:.55':'')+'">'+
+    '<div class="time mono">'+t+'</div><div class="dot" style="background:'+categoryDotColor(e.category)+'"></div>'+
+    '<div class="body" onclick="openDrawer(\''+e.id+'\')" style="cursor:pointer">'+
+      '<div class="ttl" style="'+(done?'text-decoration:line-through':'')+'">'+esc(e.title)+(e.deadline&&!e.start?' due tonight':'')+'</div>'+
+      '<div class="meta">'+courseBadge(e.course)+(e.location?'<span>'+ic('pin',12)+' '+esc(e.location)+'</span>':'')+'</div>'+
+    '</div>'+
+    '<div class="actions"><button class="icon-btn '+(done?'done':'')+'" title="Mark done" onclick="toggleDone(\''+e.id+'\')">'+ic('check',15)+'</button>'+
+    '<button class="icon-btn" title="Remind me later" onclick="snoozeItem(\''+e.id+'\')">'+ic('clock',15)+'</button></div>'+
+  '</div>';
+}
+function attnCard(e){
+  return '<div class="attn-card" style="cursor:pointer" onclick="openDrawer(\''+e.id+'\')"><span class="ic">'+ic('alert',18)+'</span>'+
+    '<div class="body"><div class="ttl">'+esc(e.title)+'</div><div class="meta">Due '+(sameDay(e.deadline,DEMO_NOW)?'tonight, ':'')+fmtTime(e.deadline)+' · Not marked completed</div></div></div>';
+}
+function recentChanges(){
+  var out=[];
+  EVENTS.forEach(function(e){
+    (e.history||[]).forEach(function(h){
+      if(!h.pending && sameDay(h.date, DEMO_NOW)) out.push({ev:e,h:h});
+    });
+  });
+  return out.sort(function(a,b){ return d(b.h.date)-d(a.h.date); });
+}
+function changeCard(rec){
+  var e=rec.ev, h=rec.h;
+  return '<div class="change-card" style="cursor:pointer" onclick="openDrawer(\''+e.id+'\')"><span class="ic">'+ic('refresh',17)+'</span>'+
+    '<div class="body"><div class="ttl">'+esc(course(e.course).name)+' '+esc(e.field==='deadline'?'deadline':h.field||'')+' changed</div>'+
+    '<div class="diff"><span class="old">'+esc(h.prev||'—')+'</span> → <span class="new">'+esc(h.next)+'</span></div></div></div>';
+}
+
+/* ================= TODAY ================= */
+function renderToday(){
+  var today = todaysEvents();
+  var now = DEMO_NOW;
+  var live = today.filter(function(e){ return e.start && d(e.start)<=now && d(e.end||e.start)>=now; });
+  var next = today.filter(function(e){ return e.start && d(e.start)>now; });
+  var due = EVENTS.filter(function(e){ return e.deadline && sameDay(e.deadline,now); });
+  var changes = recentChanges();
+  var html = '<div class="page-head"><div><h1>Today</h1><div class="sub">'+fmtDayLong(nowIso())+'</div></div></div>';
+  if(live.length) html += '<div class="now-strip"><span class="pulse"></span> In progress: '+esc(live[0].title)+' · '+esc(live[0].location||'')+'</div>';
+  html += block('Next', next.length?next.map(dayCard).join(''):emptyState('check','Nothing else scheduled','You’re clear for the rest of today.'));
+  html += block('Due today', due.length?due.map(attnCard).join(''):'');
+  html += block('Changes', changes.length?changes.map(changeCard).join(''):'');
+  return html;
+}
+function block(title, inner){ if(!inner) return ''; return '<div class="today-block"><h2>'+title+'</h2>'+inner+'</div>'; }
+
+/* ================= CALENDAR ================= */
+function weekStart(offset){
+  var base = new Date(DEMO_NOW);
+  var day = base.getDay(); // 0 sun
+  var diff = (day===0?-6:1-day);
+  base.setDate(base.getDate()+diff+ offset*7);
+  base.setHours(0,0,0,0);
+  return base;
+}
+function renderCalendar(){
+  var isMobile = window.innerWidth < 1024;
+  var head = '<div class="page-head"><div><h1>Calendar</h1><div class="sub">Classes, deadlines, quizzes and events</div></div></div>';
+  if(isMobile) return head + agendaView();
+  return head + weekView();
+}
+function weekView(){
+  var start = weekStart(state.calWeekOffset);
+  var days = [0,1,2,3,4,5,6].map(function(i){ var dd=new Date(start); dd.setDate(dd.getDate()+i); return dd; });
+  var hours = [8,9,10,11,12,13,14,15,16,17,18,19,20];
+  var toolbar = '<div class="cal-toolbar"><span class="lbl">'+days[0].toLocaleDateString('en-US',{day:'numeric',month:'short'})+' – '+days[6].toLocaleDateString('en-US',{day:'numeric',month:'short'})+'</span>'+
+    '<div class="cal-nav"><button class="icon-btn" onclick="calNav(-1)">'+ic('chevronLeft',16)+'</button><button class="btn-sm btn-secondary" style="width:auto" onclick="calNav(0)">Today</button><button class="icon-btn" onclick="calNav(1)">'+ic('chevronRight',16)+'</button></div></div>';
+
+  var headerCells = '<div class="corner"></div>' + days.map(function(dd){
+    return '<div class="head '+(sameDay(dd,DEMO_NOW)?'today':'')+'">'+dd.toLocaleDateString('en-US',{weekday:'short'})+'<br><span class="mono" style="font-size:11px">'+dd.getDate()+'</span></div>';
+  }).join('');
+
+  var rows = hours.map(function(h){
+    var lbl = '<div class="hourlbl">'+(h%12===0?12:h%12)+(h<12?'a':'p')+'</div>';
+    var cells = days.map(function(dd){
+      return '<div class="cell '+(sameDay(dd,DEMO_NOW)?'today-col':'')+'" data-day="'+dd.toISOString()+'" data-hour="'+h+'"></div>';
+    }).join('');
+    return lbl+cells;
+  }).join('');
+
+  var blocks = EVENTS.filter(function(e){return e.start;}).map(function(e){
+    var s=d(e.start), en=d(e.end||e.start);
+    var dayIdx = days.findIndex(function(dd){return sameDay(dd,s);});
+    if(dayIdx<0) return '';
+    var startHour = s.getHours()+s.getMinutes()/60;
+    if(startHour<hours[0]||startHour>hours[hours.length-1]+1) return '';
+    var top = (startHour-hours[0])*44;
+    var durH = Math.max(0.5,(en-s)/3600000);
+    var height = durH*44-4;
+    var left = 'calc(56px + ((100% - 56px) / 7) * '+dayIdx+' + 3px)';
+    var width = 'calc(((100% - 56px) / 7) - 6px)';
+    var c = course(e.course);
+    return '<div class="ev-block" style="top:'+top+'px;height:'+height+'px;left:'+left+';width:'+width+';background:'+c.color+'22;border-left-color:'+c.color+';color:'+c.color+'" onclick="openDrawer(\''+e.id+'\')"><div class="t">'+fmtTime(e.start)+'</div>'+esc(e.title)+'</div>';
+  }).join('');
+
+  return toolbar+'<div style="position:relative;overflow-x:auto"><div class="week-grid" style="min-width:760px">'+headerCells+rows+'</div><div style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;min-width:760px"><div style="position:relative;height:100%;pointer-events:auto">'+blocks+'</div></div></div>';
+}
+function agendaView(){
+  var byDay = {};
+  var order = [];
+  EVENTS.forEach(function(e){
+    var t = e.start||e.deadline; if(!t) return;
+    var key = d(t).toDateString();
+    if(!byDay[key]){ byDay[key]=[]; order.push({key:key,date:t}); }
+    byDay[key].push(e);
+  });
+  order.sort(function(a,b){return d(a.date)-d(b.date);});
+  return order.map(function(o){
+    var items = byDay[o.key].sort(function(a,b){ return d(a.start||a.deadline)-d(b.start||b.deadline); });
+    return '<div class="agenda-day"><h3>'+(sameDay(o.date,DEMO_NOW)?'Today — ':'')+fmtDayShort(o.date)+'</h3>'+items.map(dayCard).join('')+'</div>';
+  }).join('');
+}
+window.calNav = function(dir){ state.calWeekOffset = dir===0?0:state.calWeekOffset+dir; render(); };
+
+/* ================= EVENT / DOC DRAWER ================= */
+window.openDrawer = function(id){ state.drawer = {type:'event', id:id}; render(); };
+window.openDocDrawer = function(id){ state.drawer = {type:'doc', id:id}; render(); };
+window.closeDrawer = function(){ state.drawer=null; render(); };
+function renderDrawer(){
+  var el = document.getElementById('overlays');
+  if(!state.drawer){ el.innerHTML=''; return; }
+  if(state.drawer.type==='event') el.innerHTML = eventDrawerHtml(state.drawer.id);
+  else el.innerHTML = docDrawerHtml(state.drawer.id);
+}
+function eventDrawerHtml(id){
+  var e = EVENTS.find(function(x){return x.id===id;});
+  if(!e) return '';
+  var histHtml = (e.history||[]).length ? '<div class="dl-row"><div class="k">History</div><div class="v">'+ e.history.map(function(h){
+    return '<div style="margin-bottom:6px;padding:8px 10px;border-radius:8px;background:var(--surface-2);font-size:12.5px">'+sourceIcon(h.sourceType)+' <b>'+esc(h.next)+'</b>'+(h.prev?' <span style="color:var(--text-faint)">(was '+esc(h.prev)+')</span>':'')+'<br><span style="color:var(--text-faint)">'+esc(h.source)+(h.pending?' · pending confirmation':'')+'</span></div>';
+  }).join('') +'</div></div>' : '';
+  return '<div class="overlay" onclick="if(event.target===this)closeDrawer()"><div class="drawer">'+
+    '<div class="drawer-head"><div><h2 style="font-size:18px">'+esc(e.title)+'</h2><div style="margin-top:6px">'+courseBadge(e.course)+' '+priorityBadge(e.priority)+'</div></div><button class="drawer-close" onclick="closeDrawer()">'+ic('x',15)+'</button></div>'+
+    '<div class="drawer-body"><div class="dl">'+
+      '<div class="dl-row"><div class="k">Category</div><div class="v">'+categoryLabel(e.category)+'</div></div>'+
+      (e.start?'<div class="dl-row"><div class="k">Time</div><div class="v">'+fmtTime(e.start)+' – '+fmtTime(e.end)+', '+fmtDayShort(e.start)+'</div></div>':'')+
+      (e.deadline?'<div class="dl-row"><div class="k">Deadline</div><div class="v">'+fmtDayShort(e.deadline)+', '+fmtTime(e.deadline)+'</div></div>':'')+
+      (e.location?'<div class="dl-row"><div class="k">Location</div><div class="v">'+ic('pin',13)+' '+esc(e.location)+'</div></div>':'')+
+      '<div class="dl-row"><div class="k">Description</div><div class="v">'+esc(e.description)+'</div></div>'+
+      '<div class="dl-row"><div class="k">Action</div><div class="v">'+esc(e.actionRequired||'—')+'</div></div>'+
+      '<div class="dl-row"><div class="k">Source</div><div class="v">'+sourceIcon(e.sourceType)+' '+esc(e.sourceName)+'<br><span style="color:var(--text-faint);font-size:12px">'+esc(e.sourceDetail)+'</span></div></div>'+
+      '<div class="dl-row"><div class="k">Confidence</div><div class="v">'+confBadge(e.confidence)+'</div></div>'+
+      histHtml+
+    '</div>'+
+    (e.conflict? conflictBlock(e) : '')+
+    '<div class="drawer-actions">'+
+      '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="toggleDone(\''+e.id+'\');closeDrawer()">'+ic('check',14)+' Mark complete</button>'+
+      '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="toast(\'Editing isn\\\'t wired up in this demo\',\'file\')">Edit</button>'+
+      '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="toast(\'Opening original source\',\'external\')">Open source</button>'+
+      '<button class="btn btn-danger-ghost btn-sm" style="width:auto" onclick="toast(\'Deleted (demo only — not persisted)\',\'trash\')">Delete</button>'+
+    '</div></div></div></div>';
+}
+function conflictBlock(e){
+  var hist = e.history.filter(function(h){return h.field==='deadline';});
+  var latest = hist[hist.length-1];
+  if(!latest || !latest.pending) return '';
+  var prevOne = hist[hist.length-2];
+  return '<div class="conflict-box" style="margin:14px 20px 0"><div class="lab">'+ic('alert',13)+' This information may have changed</div>'+
+    '<div class="row"><span>Previous</span><span class="mono">'+esc(prevOne?prevOne.next:'—')+'</span></div>'+
+    '<div class="row"><span>New</span><span class="mono" style="font-weight:700">'+esc(latest.next)+'</span></div>'+
+    '<div class="row"><span>Source</span><span>'+esc(latest.source)+'</span></div>'+
+    '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" style="width:auto" onclick="resolveConflict(\''+e.id+'\',\'update\')">Update deadline</button><button class="btn btn-secondary btn-sm" style="width:auto" onclick="resolveConflict(\''+e.id+'\',\'keep\')">Keep existing</button></div></div>';
+}
+window.resolveConflict = function(id, action){
+  var e = EVENTS.find(function(x){return x.id===id;});
+  var hist = e.history.filter(function(h){return h.field==='deadline';});
+  var latest = hist[hist.length-1];
+  latest.pending = false;
+  if(action==='update'){
+    e.deadline = '2026-09-27T23:59:00+05:30';
+    e.sourceType='whatsapp'; e.sourceName='WhatsApp screenshot'; e.sourceDetail='Forwarded by classmate — unverified, kept alongside original';
+    toast('Deadline updated to Sunday','check');
+  } else {
+    toast('Kept the original Friday deadline','check');
+  }
+  e.conflict = false;
+  var ib = INBOX.find(function(i){return i.ref===id;});
+  if(ib){ ib.resolved = action; }
+  render();
+};
+
+function docDrawerHtml(id){
+  var doc = DOCS.find(function(x){return x.id===id;});
+  if(!doc) return '';
+  return '<div class="overlay" onclick="if(event.target===this)closeDrawer()"><div class="drawer">'+
+  '<div class="drawer-head"><div><h2 style="font-size:17px">'+esc(doc.title)+'</h2><div style="margin-top:6px">'+courseBadge(doc.course)+' <span class="badge badge-source">'+doc.fileType+'</span></div></div><button class="drawer-close" onclick="closeDrawer()">'+ic('x',15)+'</button></div>'+
+  '<div class="drawer-body"><div class="dl">'+
+    '<div class="dl-row"><div class="k">Summary</div><div class="v">'+esc(doc.summary)+'</div></div>'+
+    '<div class="dl-row"><div class="k">Source</div><div class="v">'+sourceIcon(doc.sourceType)+' '+esc(doc.sourceName)+'</div></div>'+
+    '<div class="dl-row"><div class="k">Added</div><div class="v">'+fmtDayShort(doc.date+'T00:00:00+05:30')+'</div></div>'+
+  '</div>'+
+  '<div class="drawer-actions">'+
+    '<button class="btn btn-primary btn-sm" style="width:auto" onclick="closeDrawer();go(\'#/ask\');setTimeout(function(){askAsk(\'What does \''+esc(doc.title)+'\' say?\')},50)">Ask about this document</button>'+
+    '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="toast(\'Summary: \'+'+JSON.stringify(doc.summary)+',\'sparkle\')">Summarize</button>'+
+    '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="toast(\'Opening original document\',\'external\')">Open original</button>'+
+  '</div></div></div></div>';
+}
+
+/* ================= CAPTURE ================= */
+var SCENARIOS = {
+  screenshot: {
+    label:'screenshot', processingMs:1100,
+    items:[{
+      kind:'class-change', title:'Class location change', course:'strat',
+      fields:{Type:'Class change', Course:'Competitive Strategy', Class:'Tomorrow’s 11:30 AM session', From:'AC8', To:'AC2'},
+      confidence:0.96
+    }]
+  },
+  text: {
+    label:'pasted message', processingMs:900, prefill:'Quiz 3 shifted to Monday, 8:30 AM. Chapters 4–6.',
+    items:[{
+      kind:'quiz', title:'Quiz', course:'mktg',
+      fields:{Type:'Quiz', Course:'Marketing', Title:'Quiz 3', Date:'Monday, 8:30 AM', Coverage:'Chapters 4–6', Action:'Prepare for quiz'},
+      confidence:0.94
+    }]
+  },
+  document: {
+    label:'document', processingMs:1000,
+    items:[{
+      kind:'document', title:'New reading detected', course:'ops',
+      fields:{Type:'Reading', Course:'Operations', Title:'Supply Chain Resilience — Reading 5', Pages:'14', Action:'Add to Knowledge'},
+      confidence:0.9
+    }]
+  },
+  link: {
+    label:'link', processingMs:700,
+    items:[{
+      kind:'link', title:'Course page added', course:'lead',
+      fields:{Type:'Website', Course:'Leadership', Page:'isb.edu/leadership-2026', Action:'Monitor for changes'},
+      confidence:1
+    }]
+  }
+};
+function renderCapture(){
+  var c = state.capture;
+  var head = '<div class="capture-hero"><h1>Capture anything</h1><p>Screenshot, document, pasted text or a link — Campus Copilot reads it and shows you what it found before saving anything.</p></div>';
+  if(c.stage==='options'){
+    return head + '<div class="capture-grid">'+
+      captureOpt('camera','Take Photo','screenshot')+
+      captureOpt('image','Upload Screenshot','screenshot')+
+      captureOpt('file','Upload Document','document')+
+      captureOpt('type','Paste Text','text')+
+      captureOpt('link','Paste Link','link')+
+    '</div>'+
+    '<div class="dropzone" ondragover="event.preventDefault();this.style.borderColor=\'var(--accent)\'" ondrop="event.preventDefault();startCapture(\'screenshot\')">'+ic('upload',22)+'<div style="margin-top:8px">Drag and drop a file here (desktop) — this demo simulates the AI extraction</div></div>';
+  }
+  if(c.stage==='paste'){
+    return head + '<textarea class="paste-box" id="pasteInput">'+esc(SCENARIOS.text.prefill)+'</textarea>'+
+    '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-primary" style="width:auto;padding-left:20px;padding-right:20px" onclick="runExtraction(\'text\')">Extract information</button><button class="btn btn-secondary" style="width:auto" onclick="resetCapture()">Cancel</button></div>';
+  }
+  if(c.stage==='processing'){
+    return head+'<div class="capture-processing"><div class="spinner"></div><div style="font-weight:700">Reading your '+c.scenario.split('-')[0]+'…</div><p style="color:var(--text-muted);font-size:13.5px;max-width:280px">Extracting text, detecting dates and actions, mapping to a course.</p></div>';
+  }
+  if(c.stage==='preview'){
+    var items = c.items;
+    return head + '<div class="found-head"><span class="n">'+ic('sparkle',17)+'</span><h2 style="font-size:16px">I found '+items.length+' thing'+(items.length>1?'s':'')+'</h2></div>'+
+      items.map(function(it,i){ return extractCard(it,i); }).join('') +
+      '<div class="extract-actions"><button class="btn btn-primary" style="width:auto;padding-left:20px;padding-right:20px" onclick="confirmAllCapture()">Confirm All</button><button class="btn btn-secondary" style="width:auto" onclick="resetCapture()">Discard</button></div>';
+  }
+  if(c.stage==='low-confidence'){
+    return head+'<div class="extract-card" style="border-color:var(--warn)"><div class="top"><span class="badge badge-conf-low">Low confidence — please check</span></div>'+
+    '<p style="font-size:13.5px;color:var(--text-muted)">The extracted text was too unclear to identify a reliable date or action. Campus Copilot never creates a high-impact event automatically when confidence is this low — nothing was saved.</p>'+
+    '<div class="extract-actions"><button class="btn btn-secondary" style="width:auto" onclick="resetCapture()">Try again</button></div></div>';
+  }
+  return head + emptyState('check','Added to Campus Copilot','Head to Today or Calendar to see it.') + '<div style="text-align:center;margin-top:10px"><button class="btn btn-primary" style="width:auto;padding-left:22px;padding-right:22px" onclick="resetCapture()">Capture something else</button></div>';
+}
+function captureOpt(icon,label,scenario){
+  return '<button class="capture-opt" onclick="'+(scenario==='text'?'openPaste()':'startCapture(\''+scenario+'\')')+'"><span class="ic">'+ic(icon,20)+'</span>'+label+'</button>';
+}
+window.openPaste = function(){ state.capture = {stage:'paste'}; render(); };
+window.startCapture = function(scenario){
+  var sc = SCENARIOS[scenario];
+  state.capture = {stage:'processing', scenario:scenario};
+  render();
+  setTimeout(function(){
+    state.capture = {stage:'preview', scenario:scenario, items: JSON.parse(JSON.stringify(sc.items))};
+    render();
+  }, sc.processingMs);
+};
+window.runExtraction = function(scenario){
+  var input = document.getElementById('pasteInput');
+  var sc = SCENARIOS[scenario];
+  state.capture = {stage:'processing', scenario:scenario};
+  render();
+  setTimeout(function(){
+    state.capture = {stage:'preview', scenario:scenario, items: JSON.parse(JSON.stringify(sc.items))};
+    render();
+  }, sc.processingMs);
+};
+window.resetCapture = function(){ state.capture = {stage:'options'}; render(); };
+function extractCard(it,i){
+  var fieldsHtml = Object.keys(it.fields).map(function(k){
+    return '<div><div class="k">'+k+'</div><div class="v">'+esc(it.fields[k])+'</div></div>';
+  }).join('');
+  return '<div class="extract-card"><div class="top"><span class="badge badge-cat">'+esc(it.fields.Type||'Detected')+'</span>'+confBadge(it.confidence)+'</div>'+
+  '<div style="font-weight:700;margin-bottom:8px">'+esc(it.title)+'</div>'+
+  '<div class="fields">'+fieldsHtml+'</div>'+
+  '<div class="extract-actions"><button class="btn btn-primary btn-sm" style="width:auto" onclick="confirmOneCapture('+i+')">Confirm & Save</button><button class="btn btn-secondary btn-sm" style="width:auto" onclick="toast(\'Editing isn\\\'t wired up in this demo\',\'file\')">Edit</button><button class="btn btn-danger-ghost btn-sm" style="width:auto" onclick="discardOneCapture('+i+')">Discard</button></div>'+
+  '</div>';
+}
+window.confirmOneCapture = function(i){ applyCaptureItem(state.capture.items[i]); state.capture.items.splice(i,1); if(!state.capture.items.length){ state.capture.stage='done'; } render(); };
+window.discardOneCapture = function(i){ state.capture.items.splice(i,1); if(!state.capture.items.length){ state.capture={stage:'options'}; } render(); };
+window.confirmAllCapture = function(){ state.capture.items.forEach(applyCaptureItem); state.capture = {stage:'done'}; render(); };
+function applyCaptureItem(it){
+  if(it.kind==='class-change'){
+    var e = EVENTS.find(function(x){return x.id==='ev-strat-class';});
+    e.history.push({field:'location', prev:e.location, next:'AC2', source:'Screenshot upload — you', sourceType:'upload', date: nowIso()});
+    e.location='AC2'; e.confidence=0.96; e.sourceType='upload'; e.sourceName='Manual upload'; e.sourceDetail='Screenshot, confirmed by you';
+    INBOX.unshift({id:'ib-cap-'+Date.now(), ref:'ev-strat-class', sourceType:'upload', category:'Class change', headline:'Strategy class moved',
+      summary:'Tomorrow’s 11:30 AM Strategy class has moved from AC8 to AC2.', ts: nowIso(), confidence:0.96, action:'View source'});
+    toast('Strategy class updated: AC8 → AC2','check');
+  } else if(it.kind==='quiz'){
+    var id = 'ev-quiz3-'+Date.now();
+    EVENTS.push({id:id, category:'quiz', title:'Marketing Quiz 3', course:'mktg',
+      description:'Coverage: Chapters 4–6.', start:'2026-09-28T08:30:00+05:30', end:'2026-09-28T09:00:00+05:30', deadline:null,
+      location:null, priority:'high', confidence:0.94, status:'active',
+      sourceType:'upload', sourceName:'Pasted message', sourceDetail:'Confirmed by you — originally unverified text', sourceUrl:'#',
+      actionRequired:'Prepare for quiz', history:[]});
+    INBOX.unshift({id:'ib-cap-'+Date.now(), sourceType:'upload', category:'Quiz', headline:'Marketing Quiz 3 added',
+      summary:'Detected from a pasted message: shifted to Monday, 8:30 AM, chapters 4–6.', ts: nowIso(), confidence:0.94});
+    toast('Quiz 3 added to your calendar','check');
+  } else if(it.kind==='document'){
+    DOCS.unshift({id:'doc-cap-'+Date.now(), title:'Supply Chain Resilience — Reading 5', course:'ops', fileType:'PDF', sourceType:'upload', sourceName:'Student supplied', date:'2026-09-22', summary:'New reading you uploaded, added to your Operations knowledge base.'});
+    toast('Added to Knowledge','check');
+  } else if(it.kind==='link'){
+    toast('Website added — Campus Copilot will check it for changes','link');
+  }
+}
+
+/* ================= INBOX ================= */
+var INBOX_FILTERS = ['All','Deadlines','Classes','Academic','Events','Needs Review'];
+var inboxFilter = 'All';
+window.setInboxFilter = function(f){ inboxFilter = f; render(); };
+function renderInbox(){
+  var head = '<div class="page-head"><div><h1>Inbox</h1><div class="sub">Not an email client — an AI-generated stream of what might matter.</div></div></div>';
+  var tabs = '<div class="tabs">'+INBOX_FILTERS.map(function(f){ return '<button class="tab '+(f===inboxFilter?'active':'')+'" onclick="setInboxFilter(\''+f+'\')">'+f+'</button>'; }).join('')+'</div>';
+  var items = INBOX.filter(function(it){
+    if(inboxFilter==='All') return true;
+    if(inboxFilter==='Deadlines') return /deadline|assignment|quiz|exam/i.test(it.category);
+    if(inboxFilter==='Classes') return /class/i.test(it.category);
+    if(inboxFilter==='Academic') return /academic/i.test(it.category);
+    if(inboxFilter==='Events') return /event|career|placement/i.test(it.category);
+    if(inboxFilter==='Needs Review') return it.confidence<0.9 || it.conflict;
+    return true;
+  });
+  var body = items.length ? items.map(inboxCard).join('') : emptyState('check','You’re caught up','Nothing new to review.');
+  return head+tabs+body;
+}
+function inboxCard(it){
+  var ev = it.ref ? EVENTS.find(function(e){return e.id===it.ref;}) : null;
+  var conflictHtml='';
+  if(it.conflict && ev && ev.conflict){ conflictHtml = conflictBlock(ev).replace('margin:14px 20px 0','margin-top:10px'); }
+  else if(it.resolved){ conflictHtml = '<div class="conflict-box" style="border-color:var(--good);background:var(--good-tint)"><div class="lab" style="color:var(--good)">'+ic('check',13)+' Resolved — '+(it.resolved==='update'?'deadline updated to Sunday':'kept the original Friday deadline')+'</div></div>'; }
+  return '<div class="inbox-card">'+
+  '<div class="top"><span class="src-ic">'+sourceIcon(it.sourceType)+'</span><span class="badge badge-cat">'+esc(it.category)+'</span>'+confBadge(it.confidence)+'</div>'+
+  '<div class="headline">'+esc(it.headline)+'</div><div class="summary">'+esc(it.summary)+'</div>'+
+  conflictHtml+
+  '<div class="foot"><span class="ts">'+timeAgo(it.ts)+'</span><div class="inbox-actions">'+
+    (ev && !it.conflict ? '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="openDrawer(\''+ev.id+'\')">'+(it.action||'View')+'</button>' : '')+
+    (!ev ? '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="toast(\'Opening source\',\'external\')">'+(it.action||'View')+'</button>' : '')+
+  '</div></div></div>';
+}
+function timeAgo(iso){
+  var mins = Math.round((DEMO_NOW - d(iso))/60000);
+  if(mins<0) return fmtDayShort(iso);
+  if(mins<60) return mins+'m ago';
+  if(mins<1440) return Math.round(mins/60)+'h ago';
+  return Math.round(mins/1440)+'d ago';
+}
+
+/* ================= KNOWLEDGE ================= */
+var knowledgeQuery = '';
+var knowledgeCourseFilter = 'All';
+window.setKnowledgeQuery = function(v){ knowledgeQuery=v; render(); };
+window.setKnowledgeCourse = function(c){ knowledgeCourseFilter=c; render(); };
+function renderKnowledge(){
+  var head = '<div class="page-head"><div><h1>Knowledge</h1><div class="sub">Search your readings, slides, notes and LMS content.</div></div></div>';
+  var search = '<div class="search-bar">'+ic('search',16)+'<input placeholder="Search your campus knowledge..." value="'+esc(knowledgeQuery)+'" oninput="setKnowledgeQuery(this.value)"></div>';
+  var filters = '<div class="filter-row">'+['All'].concat(COURSES.map(function(c){return c.id;})).map(function(cid){
+    var label = cid==='All'?'All courses':course(cid).name;
+    return '<button class="tab '+(knowledgeCourseFilter===cid?'active':'')+'" onclick="setKnowledgeCourse(\''+cid+'\')">'+label+'</button>';
+  }).join('')+'</div>';
+  var q = knowledgeQuery.toLowerCase();
+  var docs = DOCS.filter(function(doc){
+    if(knowledgeCourseFilter!=='All' && doc.course!==knowledgeCourseFilter) return false;
+    if(q && !(doc.title.toLowerCase().indexOf(q)>-1 || doc.summary.toLowerCase().indexOf(q)>-1)) return false;
+    return true;
+  });
+  var grid = docs.length ? '<div class="doc-grid">'+docs.map(docCard).join('')+'</div>' : emptyState('book','Your knowledge base is empty','Upload your first reading or connect your LMS.');
+  return head+search+filters+grid;
+}
+function docCard(doc){
+  return '<div class="doc-card" onclick="openDocDrawer(\''+doc.id+'\')"><div class="top"><span class="fic">'+doc.fileType.slice(0,3)+'</span><div><h3>'+esc(doc.title)+'</h3><div class="meta">'+courseShort(doc.course)+' · '+sourceLabel({sourceType:doc.sourceType})+' · '+fmtDayShort(doc.date+'T00:00:00+05:30')+'</div></div></div><div class="summary">'+esc(doc.summary)+'</div></div>';
+}
+
+/* ================= ASK COPILOT ================= */
+var STARTERS = ['What is due this week?','What changed today?','Where is tomorrow’s Strategy class?','Summarize the readings for tomorrow.','What quizzes do I have coming up?','What did Prof. Menon say about network effects?'];
+function renderAsk(){
+  var head = '<div class="page-head"><div><h1>Ask Copilot</h1><div class="sub">Answers are grounded in your connected sources — every fact shows where it came from.</div></div></div>';
+  var body;
+  if(!state.chat.length){
+    body = emptyState('chat','Ask anything about your classes, deadlines or academic material','Try one of these to start:')+
+    '<div class="starter-grid">'+STARTERS.map(function(s){return '<button class="starter" onclick="askAsk('+JSON.stringify(s)+')">'+esc(s)+'</button>';}).join('')+'</div>';
+    return head + '<div class="chat-wrap"><div class="chat-scroll">'+body+'</div>'+chatInputRow()+'</div>';
+  }
+  body = state.chat.map(function(m){
+    if(m.role==='user') return '<div class="msg user"><div class="bubble">'+esc(m.text)+'</div></div>';
+    return '<div class="msg bot"><div class="bubble">'+m.html+'</div></div>';
+  }).join('');
+  return head + '<div class="chat-wrap"><div class="chat-scroll">'+body+'</div>'+chatInputRow()+'</div>';
+}
+function chatInputRow(){
+  return '<div class="chat-input-row"><input id="chatInput" placeholder="Ask about your classes, deadlines or material…" onkeydown="if(event.key===\'Enter\')sendChat()"><button class="send-btn" onclick="sendChat()">'+ic('arrowRight',18)+'</button></div>';
+}
+window.sendChat = function(){
+  var input = document.getElementById('chatInput');
+  var v = (input.value||'').trim();
+  if(!v) return;
+  input.value='';
+  askAsk(v);
+};
+window.askAsk = function(q){
+  state.chat.push({role:'user', text:q});
+  state.chat.push({role:'bot', html: answerFor(q)});
+  render();
+};
+function srcLine(name, detail){
+  return '<div class="ans-src"><span>'+ic('external',12)+' Source: '+esc(name)+(detail?' — '+esc(detail):'')+'</span></div>';
+}
+function answerFor(qRaw){
+  var q = qRaw.toLowerCase();
+  if(q.indexOf('due this week')>-1 || (q.indexOf('due')>-1 && q.indexOf('week')>-1)){
+    var items = upcoming(7,{deadlineOnly:true});
+    if(!items.length) return 'You have no submissions due in the next 7 days.';
+    var out = '<p>You have '+items.length+' submission'+(items.length>1?'s':'')+' due this week.</p>';
+    items.forEach(function(e){
+      out += '<div class="ans-card"><div class="t">'+esc(e.title)+'</div><div class="m">'+fmtDayLong(e.deadline).split(',')[0]+', '+fmtTime(e.deadline)+'</div>'+srcLine(e.sourceName, e.sourceDetail)+'</div>';
+    });
+    return out;
+  }
+  if(q.indexOf('changed')>-1){
+    var changes = recentChanges();
+    if(!changes.length) return 'Nothing has changed yet today. Try the Capture screen — uploading the sample classroom-change screenshot will log one you can ask about.';
+    var out2 = '<p>Here’s what changed today:</p>';
+    changes.forEach(function(rec){
+      out2 += '<div class="ans-card"><div class="t">'+esc(course(rec.ev.course).name)+' '+(rec.h.field==='location'?'location':rec.h.field)+' changed</div><div class="m mono">'+esc(rec.h.prev||'—')+' → '+esc(rec.h.next)+'</div>'+srcLine(rec.h.source)+'</div>';
+    });
+    return out2;
+  }
+  if(q.indexOf('strategy')>-1 && (q.indexOf('where')>-1||q.indexOf('location')>-1||q.indexOf('room')>-1)){
+    var ev = EVENTS.find(function(x){return x.id==='ev-strat-class';});
+    return '<div class="ans-card"><div class="t">'+esc(ev.location)+'</div><div class="m">'+fmtTime(ev.start)+' – '+fmtTime(ev.end)+', '+fmtDayShort(ev.start)+'</div>'+srcLine(ev.sourceName, ev.sourceDetail)+'</div>';
+  }
+  if(q.indexOf('summarize')>-1 && q.indexOf('reading')>-1){
+    var docs = DOCS.slice(0,2);
+    var out3 = '<p>Readings for your next sessions:</p>';
+    docs.forEach(function(doc){ out3 += '<div class="ans-card"><div class="t">'+esc(doc.title)+'</div><div class="m">'+esc(doc.summary)+'</div>'+srcLine(doc.sourceName)+'</div>'; });
+    return out3;
+  }
+  if(q.indexOf('quiz')>-1){
+    var quizzes = EVENTS.filter(function(e){return e.category==='quiz';}).sort(function(a,b){return d(a.start)-d(b.start);});
+    if(!quizzes.length) return 'No quizzes are on your calendar right now.';
+    var out4 = '';
+    quizzes.forEach(function(e){ out4 += '<div class="ans-card"><div class="t">'+esc(e.title)+'</div><div class="m">'+fmtDayShort(e.start)+', '+fmtTime(e.start)+' — '+esc(e.description)+'</div>'+srcLine(e.sourceName,e.sourceDetail)+'</div>'; });
+    return out4;
+  }
+  if(q.indexOf('network effect')>-1 || (q.indexOf('menon')>-1)){
+    var doc2 = DOCS.find(function(x){return x.id==='doc1';});
+    return '<div class="ans-card"><div class="t">From Session 9 slides</div><div class="m">'+esc(doc2.summary)+'</div>'+srcLine(doc2.sourceName,'Uploaded to LMS — 20 Sep')+'</div>';
+  }
+  /* generic grounded fallback: search documents & events for keyword overlap */
+  var words = q.split(/\s+/).filter(function(w){return w.length>3;});
+  var hit = DOCS.find(function(doc){ return words.some(function(w){ return doc.title.toLowerCase().indexOf(w)>-1 || doc.summary.toLowerCase().indexOf(w)>-1; }); });
+  if(hit) return '<div class="ans-card"><div class="t">'+esc(hit.title)+'</div><div class="m">'+esc(hit.summary)+'</div>'+srcLine(hit.sourceName)+'</div>';
+  return 'I couldn’t find a confident, source-backed answer to that in what’s connected right now. Try rephrasing, or check the Knowledge tab — I’d rather say I’m not sure than guess.';
+}
+
+/* ================= SOURCES & PRIVACY ================= */
+function renderSources(){
+  var head = '<div class="page-head"><div><h1>Sources & Privacy</h1><div class="sub">Your data stays isolated to you unless you explicitly share it.</div></div></div>';
+  var trust = '<div class="rail-card" style="margin-bottom:22px"><h3>Source trust hierarchy</h3><div class="trust-list">'+
+    TRUST_ORDER.map(function(t,i){ return '<div class="trust-row"><span class="rank mono">'+(i+1)+'</span>'+t+'</div>'; }).join('')+'</div></div>';
+  var rows = SOURCES.map(sourceRow).join('');
+  return head+trust+rows;
+}
+function sourceRow(s){
+  var connected = s.status==='connected';
+  var isFolder = s.type==='folder';
+  var metaText;
+  if(isFolder && connected){ metaText = s.fileCount+' file'+(s.fileCount===1?'':'s')+' indexed from “'+esc(s.folderName)+'” · synced '+timeAgo(s.lastSync); }
+  else if(connected){ metaText = 'Last synced '+timeAgo(s.lastSync); }
+  else if(s.status==='manual'){ metaText = 'Manual, no auto-sync'; }
+  else { metaText = 'Not connected'; }
+  var btns;
+  if(isFolder){
+    btns = connected
+      ? '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="connectLocalFolder()">Rescan</button><button class="btn btn-danger-ghost btn-sm" style="width:auto" onclick="disconnectSource(\''+s.id+'\')">Disconnect</button>'
+      : '<button class="btn btn-primary btn-sm" style="width:auto" onclick="connectLocalFolder()">Choose folder…</button>';
+  } else {
+    btns = connected
+      ? '<button class="btn btn-secondary btn-sm" style="width:auto" onclick="toast(\'Sync started\',\'refresh\')">Sync now</button><button class="btn btn-danger-ghost btn-sm" style="width:auto" onclick="disconnectSource(\''+s.id+'\')">Disconnect</button>'
+      : '<button class="btn btn-primary btn-sm" style="width:auto" onclick="connectSource(\''+s.id+'\')">Connect</button>';
+  }
+  return '<div class="source-row"><span class="sic">'+sourceIcon(s.type)+'</span>'+
+  '<div class="info"><div class="name"><span class="status-dot '+(connected?'on':'off')+'"></span>'+esc(s.name)+'</div>'+
+  '<div class="meta">'+metaText+'</div>'+
+  '<div class="accessed">'+esc(s.accessed)+'</div></div>'+
+  '<div class="btns">'+btns+'</div></div>';
+}
+window.connectSource = function(id){ var s=SOURCES.find(function(x){return x.id===id;}); s.status='connected'; s.lastSync=nowIso(); toast(s.name+' connected','check'); render(); };
+window.disconnectSource = function(id){ var s=SOURCES.find(function(x){return x.id===id;}); s.status = s.type==='whatsapp'?'manual':'disconnected'; toast(s.name+' disconnected — imported data untouched','check'); render(); };
+
+/* ---------- Local Folder Sync: a real connector, using the File System Access API
+   to read files from a folder the user picks on their own device. Nothing leaves
+   the browser — there is no server here. Chrome/Edge only. ---------- */
+var FILE_TYPE_MAP = {pdf:'PDF',doc:'DOC',docx:'DOCX',xls:'XLS',xlsx:'XLSX',ppt:'PPT',pptx:'PPTX',csv:'CSV',txt:'TXT',md:'MD',html:'HTML',htm:'HTML',ipynb:'IPYNB',json:'JSON',py:'PY',js:'JS',keras:'MODEL',joblib:'MODEL',zip:'ZIP',exe:'APP'};
+function fileTypeLabel(name){
+  var ext = (name.split('.').pop()||'').toLowerCase();
+  return FILE_TYPE_MAP[ext] || (ext?ext.toUpperCase():'FILE');
+}
+function fmtBytes(n){
+  if(n<1024) return n+' B';
+  if(n<1048576) return Math.round(n/1024)+' KB';
+  return (n/1048576).toFixed(1)+' MB';
+}
+function fmtDateISO(ms){
+  var dt = new Date(ms);
+  return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
+}
+var TEXTY_EXT = {txt:1, md:1, csv:1, json:1, py:1, js:1, html:1, htm:1};
+async function walkLocalDirectory(dirHandle, path, depth, out){
+  if(depth>4) return out;
+  for await (var entry of dirHandle.values()){
+    if(entry.name.indexOf('.')===0) continue;
+    var entryPath = path ? path+'/'+entry.name : entry.name;
+    if(entry.kind==='file'){
+      try{
+        var file = await entry.getFile();
+        var rec = {name:entry.name, path:entryPath, size:file.size, lastModified:file.lastModified, ext:(entry.name.split('.').pop()||'').toLowerCase()};
+        if(TEXTY_EXT[rec.ext] && file.size < 200000){
+          try{ rec.preview = (await file.text()).slice(0,220); }catch(err){}
+        }
+        out.push(rec);
+      }catch(err){ /* unreadable file, skip it */ }
+    } else if(entry.kind==='directory'){
+      await walkLocalDirectory(entry, entryPath, depth+1, out);
+    }
+  }
+  return out;
+}
+window.connectLocalFolder = async function(){
+  if(!window.showDirectoryPicker){
+    toast('Folder access needs Chrome or Edge on desktop','alert');
+    return;
+  }
+  var s = SOURCES.find(function(x){return x.id==='src6';});
+  try{
+    var handle = await window.showDirectoryPicker();
+    toast('Reading “'+handle.name+'”…','refresh');
+    var files = await walkLocalDirectory(handle, '', 0, []);
+    for(var i=DOCS.length-1;i>=0;i--){ if(DOCS[i].sourceType==='folder') DOCS.splice(i,1); }
+    files.forEach(function(f){
+      DOCS.unshift({
+        id:'local-'+f.path.replace(/[^a-z0-9]/gi,'-').toLowerCase()+'-'+f.size,
+        title:f.name,
+        course:null,
+        fileType:fileTypeLabel(f.name),
+        sourceType:'folder',
+        sourceName:'Local Folder Sync',
+        date:fmtDateISO(f.lastModified),
+        summary:f.preview ? f.preview.replace(/\s+/g,' ').trim()+'…' : (fileTypeLabel(f.name)+' · '+fmtBytes(f.size)+' · '+f.path)
+      });
+    });
+    s.status='connected'; s.lastSync=nowIso(); s.folderName=handle.name; s.fileCount=files.length;
+    toast('Connected — indexed '+files.length+' file'+(files.length===1?'':'s')+' from “'+handle.name+'”','check');
+    render();
+  }catch(err){
+    if(err && err.name!=='AbortError') toast('Could not read that folder: '+(err && err.message ? err.message : 'permission denied'),'alert');
+  }
+};
+
+/* ================= SETTINGS ================= */
+function renderSettings(){
+  var head = '<div class="page-head"><div><h1>Settings</h1><div class="sub">Signed in as Rangeet · Demo Mode · ISB</div></div></div>';
+  var profile = '<div class="settings-group"><h2>Profile</h2><div class="card" style="padding:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">'+
+    '<label for="pfpInputSettings" class="pfp-circle" style="width:64px;height:64px" title="Change profile photo">'+(state.profilePic?'<img src="'+state.profilePic+'" alt="">':ic('camera',18))+'</label>'+
+    '<input id="pfpInputSettings" type="file" accept="image/*" class="visually-hidden" onchange="handleProfilePicFile(this)">'+
+    '<div><div style="font-weight:700;font-size:14.5px">Rangeet</div><div style="font-size:12.5px;color:var(--text-faint);margin-top:2px">'+(state.profilePic?'Tap the photo to change it':'Add a profile photo — shown across Campus Copilot')+'</div></div>'+
+  '</div></div>';
+  var notif = '<div class="settings-group"><h2>Notifications</h2><div class="pref-list">'+
+    prefRow('deadlineReminders','Deadline reminders','24 hours and 2 hours before')+
+    prefRow('scheduleChangeAlerts','Schedule change alerts','Room, time or cancellation changes')+
+    prefRow('morningBrief','Morning brief','A short summary each morning')+
+    prefRow('newMaterial','New academic material','When readings or slides are added')+
+  '</div></div>';
+  var courses = '<div class="settings-group"><h2>Your courses</h2><div class="course-grid">'+COURSES.map(function(c){
+    var on = state.obCourses[c.id];
+    return '<button class="chip '+(on?'on':'')+'" onclick="toggleObCourse(\''+c.id+'\')">'+(on?ic('check',13):'')+' '+esc(c.name)+'</button>';
+  }).join('')+'</div></div>';
+  var danger = '<div class="settings-group"><h2>Account</h2><div class="card" style="padding:16px;display:flex;flex-direction:column;gap:10px">'+
+    '<button class="btn btn-secondary" style="width:auto" onclick="toast(\'Signed out (demo only)\',\'check\')">Sign out</button>'+
+    '<button class="btn btn-danger-ghost" style="width:auto" onclick="toast(\'Account deletion isn\\\'t wired up in this demo\',\'trash\')">Delete account data</button>'+
+  '</div></div>';
+  return head+profile+notif+courses+danger;
+}
+
+/* ================= MORE (mobile) ================= */
+function renderMore(){
+  var head='<div class="page-head"><div><h1>More</h1></div></div>';
+  var items=[{id:'knowledge',label:'Knowledge',icon:'book'},{id:'inbox',label:'Inbox',icon:'inbox'},{id:'today',label:'Today',icon:'today'},{id:'sources',label:'Sources & Privacy',icon:'database'},{id:'settings',label:'Settings',icon:'settings'}];
+  return head+'<div style="display:flex;flex-direction:column;gap:8px">'+items.map(function(it){
+    return '<button class="source-row" style="cursor:pointer;text-align:left" onclick="go(\'#/'+it.id+'\')"><span class="sic">'+ic(it.icon,18)+'</span><div class="info"><div class="name">'+it.label+'</div></div>'+ic('chevronRight',16)+'</button>';
+  }).join('')+'</div>';
+}
+
+/* ================= MOUNT ================= */
+window.addEventListener('resize', function(){ if(state.stage==='app' && (location.hash||'').indexOf('calendar')>-1) render(); });
+render();
+})();
+</script>
+</body>
+</html>
