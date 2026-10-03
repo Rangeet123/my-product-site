@@ -197,9 +197,23 @@ details.calc[open] summary{margin-bottom:12px}
     </div>
     <div class="top-side">
       <span class="meta" id="stats"></span>
+      <span class="row" id="authBox"></span>
       <button class="btn primary" id="newBtn" type="button">Post a case</button>
     </div>
   </header>
+  <p class="note" id="modeNote" hidden></p>
+  <form class="card form" id="authPanel" hidden novalidate style="max-width:460px">
+    <h2 style="font-size:22px">Sign in to Case Room</h2>
+    <label for="aEmail">Email<input type="text" id="aEmail" inputmode="email" autocomplete="email" maxlength="200"></label>
+    <label for="aPw">Password <small>At least 8 characters.</small><input type="password" id="aPw" autocomplete="current-password" maxlength="200" style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px"></label>
+    <label for="aName">Display name <small>Only needed when creating an account. Shown on what you publish.</small><input type="text" id="aName" maxlength="40" autocomplete="name"></label>
+    <p class="err" id="aErr" hidden></p>
+    <div class="row">
+      <button class="btn primary" type="submit" id="aIn">Sign in</button>
+      <button class="btn" type="button" id="aUp">Create account</button>
+      <button class="link" type="button" id="aCancel">Cancel</button>
+    </div>
+  </form>
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button type="button" role="tab" data-tab="cases" aria-selected="true">Cases</button>
     <button type="button" role="tab" data-tab="toolkit" aria-selected="false">Toolkit</button>
@@ -357,7 +371,7 @@ details.calc[open] summary{margin-bottom:12px}
         <h3>Profile</h3>
         <label for="meName" style="font-weight:600;font-size:13.5px">Display name</label>
         <input type="text" id="meName" maxlength="40" placeholder="Your name">
-        <p class="note">This prototype stores everything in this browser only. Nothing is sent anywhere, and other people cannot see your work yet.</p>
+        <p class="note" id="modeText">Your work is stored in this browser only. Nothing is sent anywhere, and other people cannot see it.</p>
         <div class="row"><button class="link danger" type="button" id="resetBtn">Erase my local data</button></div>
       </div>
     </div>
@@ -365,6 +379,7 @@ details.calc[open] summary{margin-bottom:12px}
 </div>
 <div id="toast" role="status" hidden></div>
 
+<script src="config.js"></script>
 <script>
 (function(){
 "use strict";
@@ -456,9 +471,37 @@ function LocalStore(){
     remove:function(c,id){write(c,read(c,[]).filter(function(x){return x.id!==id}));return Promise.resolve()},
     reset:function(){["cases","replies","solutions","work","votes","saved","me"].forEach(function(k){delete mem[k];if(ok)try{localStorage.removeItem(P+k)}catch(e){}});return Promise.resolve()}
   }}
-var Store=LocalStore(),ME=Store.me();
+/* Supabase-backed store: same methods as LocalStore. Used once a person is signed in.
+   Each table row is {id, user_id, data}; data is the document the screens work with. */
+function SupabaseStore(sb,u){
+  var me={id:u.id,name:"",email:u.email||""};
+  function chk(r){if(r.error)throw r.error;return r.data}
+  function safe(p){return Promise.resolve(p).then(chk).catch(function(e){console.error(e);toast("That did not save. Check your connection and try again.")})}
+  var st={
+    persistent:true,remote:true,
+    me:function(){return me},
+    setName:function(n){me.name=n;return safe(sb.from("profiles").upsert({id:u.id,name:n}))},
+    list:function(c){
+      if(c==="votes")return Promise.resolve(sb.from("votes").select("item_id,user_id")).then(chk).then(function(rows){return rows.map(function(r){return {id:r.item_id,userId:r.user_id}})});
+      if(c==="saved")return Promise.resolve(sb.from("saved").select("case_id")).then(chk).then(function(rows){return rows.map(function(r){return {id:r.case_id}})});
+      if(c==="profiles")return Promise.resolve(sb.from("profiles").select("id,name")).then(chk);
+      return Promise.resolve(sb.from(c).select("id,data")).then(chk).then(function(rows){return (SEED[c]||[]).concat(rows.map(function(r){return Object.assign({},r.data,{id:r.id})}))})},
+    put:function(c,doc){
+      if(c==="votes")return safe(sb.from("votes").upsert({item_id:doc.id,user_id:u.id},{ignoreDuplicates:true}));
+      if(c==="saved")return safe(sb.from("saved").upsert({case_id:doc.id,user_id:u.id},{ignoreDuplicates:true}));
+      return safe(sb.from(c).upsert({id:doc.id,user_id:u.id,data:doc}))},
+    remove:function(c,id){
+      if(c==="votes")return safe(sb.from("votes").delete().eq("item_id",id).eq("user_id",u.id));
+      if(c==="saved")return safe(sb.from("saved").delete().eq("case_id",id).eq("user_id",u.id));
+      return safe(sb.from(c).delete().eq("id",id))},
+    reset:function(){return Promise.resolve()}};
+  return Promise.resolve(sb.from("profiles").select("name").eq("id",u.id).maybeSingle()).then(chk).then(function(p){
+    if(p){me.name=p.name||"";return}
+    return Promise.resolve(sb.from("profiles").insert({id:u.id,name:""})).then(chk)}).then(function(){return st})}
 
-var D={cases:[],replies:[],solutions:[],work:[],votes:{},saved:{}};
+var Local=LocalStore(),Store=Local,ME=Store.me(),SB=null,AUTH=false;
+
+var D={cases:[],replies:[],solutions:[],work:[],votes:{},vc:{},saved:{},people:{}};
 var S={tab:"cases",sub:"work",sel:null,view:"welcome",prog:"all",type:"All",onlySaved:false,q:"",replyTo:null,drafts:{},confirm:null,selNode:null,focus:null,compare:null};
 var $=function(s){return document.querySelector(s)};
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
@@ -472,10 +515,10 @@ function fmt(n){if(!isFinite(n))return"—";var a=Math.abs(n),s=n<0?"−":"";
   if(a>=1e5)return s+(a/1e5).toLocaleString("en-IN",{maximumFractionDigits:2})+" lakh";
   return s+a.toLocaleString("en-IN",{maximumFractionDigits:2})}
 var toastT;function toast(m){var t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3800)}
-function nameOf(id){if(id===ME.id)return (ME.name||"You");return SEEDNAMES[id]||"Member"}
+function nameOf(id){if(id===ME.id)return (ME.name||"You");return SEEDNAMES[id]||D.people[id]||"Member"}
 function who(id,house){return el("span","who",house||!id?"Case Room library":nameOf(id)+(id===ME.id&&ME.name?" (you)":""))}
-function voteBtn(id){var on=!!D.votes[id],b=el("button","vote",on?"▲ Helpful":"▲ Mark helpful");b.type="button";b.setAttribute("aria-pressed",on?"true":"false");
-  b.addEventListener("click",function(){if(D.votes[id]){delete D.votes[id];Store.remove("votes",id)}else{D.votes[id]=true;Store.put("votes",{id:id})}renderCase()});return b}
+function voteBtn(id){var on=!!D.votes[id],n=D.vc[id]||0,b=el("button","vote",(on?"▲ Helpful":"▲ Mark helpful")+(n?" · "+n:""));b.type="button";b.setAttribute("aria-pressed",on?"true":"false");
+  b.addEventListener("click",function(){if(D.votes[id]){delete D.votes[id];D.vc[id]=Math.max(0,n-1);Store.remove("votes",id)}else{D.votes[id]=true;D.vc[id]=n+1;Store.put("votes",{id:id})}renderCase()});return b}
 function delBtn(key,fn){var b=el("button","link danger",S.confirm===key?"Confirm delete":"Delete");b.type="button";
   b.addEventListener("click",function(){if(S.confirm===key){S.confirm=null;fn()}else{S.confirm=key;renderCase();setTimeout(function(){if(S.confirm===key){S.confirm=null;renderCase()}},4000)}});return b}
 
@@ -786,7 +829,32 @@ $("#newForm").addEventListener("submit",function(ev){ev.preventDefault();
   if(msg){err.textContent=msg;err.hidden=false;return}
   err.hidden=true;var c={id:newId("c"),title:title,decision:dec,context:ctx,link:link,type:$("#fType").value,ind:$("#fInd").value,level:$("#fLevel").value,src:$("#fSrc").value,authorId:ME.id,createdAt:Date.now()};
   D.cases.push(c);Store.put("cases",c);ev.target.reset();toast("Case posted");openCase(c.id)});
-$("#meName").addEventListener("change",function(){Store.setName(this.value.trim());renderAll()});
+$("#meName").addEventListener("change",function(){Store.setName(this.value.trim());renderAuth();renderAll()});
+
+/* ---------- accounts ---------- */
+function renderAuth(){
+  var box=$("#authBox"),note=$("#modeNote");box.textContent="";
+  if(!SB){note.hidden=true;return}
+  if(AUTH){note.hidden=true;box.appendChild(el("span","meta",ME.name||ME.email||"Signed in"));
+    var o=el("button","btn small","Sign out");o.type="button";o.addEventListener("click",function(){SB.auth.signOut().then(function(){location.reload()},function(){location.reload()})});box.appendChild(o);
+    $("#modeText").textContent="You are signed in. Your workspace is private to you; what you publish is visible to other signed-in members.";$("#resetBtn").hidden=true}
+  else{var b=el("button","btn small","Sign in");b.type="button";b.addEventListener("click",function(){var p=$("#authPanel");p.hidden=!p.hidden;if(!p.hidden)$("#aEmail").focus()});box.appendChild(b);
+    note.hidden=false;note.textContent="Guest mode: your work stays in this browser. Sign in to publish to the community and see other people's solutions."}}
+function authErr(m){var e=$("#aErr");e.textContent=m;e.hidden=!m}
+function doAuth(signup){
+  var email=$("#aEmail").value.trim(),pw=$("#aPw").value,name=$("#aName").value.trim();
+  if(!/^\S+@\S+\.\S+$/.test(email)||pw.length<8){authErr("Enter your email and a password of at least 8 characters.");return}
+  authErr("");$("#aIn").disabled=$("#aUp").disabled=true;
+  var p=signup?SB.auth.signUp({email:email,password:pw}):SB.auth.signInWithPassword({email:email,password:pw});
+  Promise.resolve(p).then(function(r){
+    if(r.error){authErr(r.error.message);return}
+    if(!r.data||!r.data.session){authErr("Account created, but it needs email confirmation before you can sign in. Ask the site owner to switch off “Confirm email” in Supabase.");return}
+    var done=function(){location.reload()};
+    if(signup&&name)Promise.resolve(SB.from("profiles").upsert({id:r.data.user.id,name:name})).then(done,done);else done()
+  }).catch(function(){authErr("Could not reach the server. Try again.")}).then(function(){$("#aIn").disabled=$("#aUp").disabled=false})}
+$("#authPanel").addEventListener("submit",function(ev){ev.preventDefault();doAuth(false)});
+$("#aUp").addEventListener("click",function(){doAuth(true)});
+$("#aCancel").addEventListener("click",function(){$("#authPanel").hidden=true});
 var resetArmed=false;$("#resetBtn").addEventListener("click",function(){var b=this;if(resetArmed){Store.reset().then(function(){location.reload()})}else{resetArmed=true;b.textContent="Confirm: erase everything I have done here";setTimeout(function(){resetArmed=false;b.textContent="Erase my local data"},4000)}});
 
 /* ---------- boot ---------- */
@@ -800,10 +868,32 @@ var resetArmed=false;$("#resetBtn").addEventListener("click",function(){var b=th
     var p=el("p","note");p.appendChild(el("b",null,"Common mistake: "));p.appendChild(document.createTextNode(x.trap));c.appendChild(p);g.appendChild(c)});
   $("#meName").value=ME.name||""})();
 setPane("list");
-Promise.all(["cases","replies","solutions","work","votes","saved"].map(function(c){return Store.list(c)})).then(function(r){
-  D.cases=r[0];D.replies=r[1];D.solutions=r[2];D.work=r[3];r[4].forEach(function(v){D.votes[v.id]=true});r[5].forEach(function(v){D.saved[v.id]=true});
-  var want=(location.hash||"").slice(1);
-  if(want&&D.cases.some(function(c){return c.id===want}))openCase(want);else renderAll()});
+function start(){
+  return Promise.all(["cases","replies","solutions","work","votes","saved","profiles"].map(function(c){return Store.list(c)})).then(function(r){
+    D.cases=r[0];D.replies=r[1];D.solutions=r[2];D.work=r[3];
+    r[4].forEach(function(v){if(!v.userId||v.userId===ME.id)D.votes[v.id]=true;D.vc[v.id]=(D.vc[v.id]||0)+1});
+    r[5].forEach(function(v){D.saved[v.id]=true});r[6].forEach(function(p){if(p.name)D.people[p.id]=p.name});
+    $("#meName").value=ME.name||"";
+    if(AUTH)return carryOver()}).then(function(){
+    var want=(location.hash||"").slice(1);
+    if(want&&D.cases.some(function(c){return c.id===want}))openCase(want);else renderAll()})}
+/* First sign-in on this browser: bring guest workspaces into the account, without overwriting anything already there. */
+function carryOver(){
+  var flag="caseroom.v1.moved."+ME.id;try{if(localStorage.getItem(flag))return}catch(e){return}
+  return Local.list("work").then(function(ws){
+    ws.forEach(function(w){if(!started(w)||!D.cases.some(function(c){return c.id===w.caseId})||workOf(w.caseId))return;
+      var n=clone(w);n.id=w.caseId+"__"+ME.id;n.userId=ME.id;n.skip=false;D.work.push(n);Store.put("work",n)});
+    ws.forEach(function(w){Local.remove("work",w.id)}); /* moved, so a second account on this browser does not inherit it */
+    try{localStorage.setItem(flag,"1")}catch(e){}})}
+function loadScript(src){return new Promise(function(ok,no){var s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+(function boot(){
+  var cfg=window.CASE_ROOM_CONFIG||{};
+  if(!cfg.supabaseUrl||!cfg.supabaseKey){renderAuth();start();return}
+  loadScript("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2").then(function(){
+    SB=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);return SB.auth.getSession()
+  }).then(function(r){var u=r&&r.data&&r.data.session&&r.data.session.user;
+    if(u)return SupabaseStore(SB,u).then(function(st){Store=st;ME=st.me();AUTH=true})
+  }).catch(function(e){console.error(e);toast("Could not reach the server. Working in this browser only.")}).then(function(){renderAuth();return start()}).catch(function(e){console.error(e);toast("Could not load shared data. Reload to try again.")})})();
 })();
 </script>
 </body>
