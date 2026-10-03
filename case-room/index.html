@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Case Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a seminar room. Docket of cases on the left; the open case on the right with a private workspace (issue tree, calculations, recommendation), published solutions, and a discussion thread. */
+:root{
+  --bg:#f2f5f2; --surface:#ffffff; --sunk:#e8ede9; --ink:#15211d; --muted:#586861; --line:#d3dbd6;
+  --accent:#0f5c4a; --accent-ink:#ffffff; --chalk:#e6b422; --chalk-ink:#352800; --danger:#a8321f;
+  --display:"Bricolage Grotesque","Arial Narrow",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1513; --surface:#16201d; --sunk:#1d2a26; --ink:#e5eeea; --muted:#93a59d; --line:#2a3933;
+  --accent:#62d0b0; --accent-ink:#06221a; --chalk:#f0c84a; --chalk-ink:#2a2000; --danger:#f08a76; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0e1513; --surface:#16201d; --sunk:#1d2a26; --ink:#e5eeea; --muted:#93a59d; --line:#2a3933;
+  --accent:#62d0b0; --accent-ink:#06221a; --chalk:#f0c84a; --chalk-ink:#2a2000; --danger:#f08a76; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 48px}
+.wrap{max-width:1240px;margin-inline:auto;display:flex;flex-direction:column;gap:18px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3,h4{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.15}
+
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.top h1{font-size:34px;font-weight:700;letter-spacing:-.02em}
+.top p{margin:2px 0 0;color:var(--muted)}
+.top-side{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.meta{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.02em}
+.eyebrow{display:block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px 22px;border-bottom:2px solid var(--ink)}
+.tabs button{background:none;border:0;padding:8px 0;font-family:var(--display);font-size:17px;font-weight:500;color:var(--muted);border-bottom:4px solid transparent;margin-bottom:-2px}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--chalk);font-weight:700}
+.subtabs{display:flex;flex-wrap:wrap;gap:4px 18px;border-bottom:1px solid var(--line);margin:24px 0 18px}
+.subtabs button{background:none;border:0;padding:7px 0;font-weight:600;font-size:14px;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.subtabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 12px;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{padding:4px 9px;font-size:13px}
+.btn[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.link{background:none;border:0;padding:2px 0;color:var(--muted);font-size:13px;font-weight:500}
+.link:hover{color:var(--ink);text-decoration:underline}
+.link.danger{color:var(--danger)}
+
+.split{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:22px;align-items:start}
+.pane{min-width:0}
+.controls{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+input[type=search],input[type=text],input[type=url],input[type=number],select,textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+textarea{resize:vertical;min-height:64px;line-height:1.45}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:6px 10px;font-size:13px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+.controls select{width:auto;flex:1;min-width:120px;padding:6px 8px;font-size:13px}
+
+.cotd{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--chalk);border-radius:6px;padding:10px 12px;margin-bottom:12px}
+.cotd:hover{border-color:var(--muted);border-left-color:var(--chalk)}
+.cotd b{display:block;font-family:var(--display);font-size:16px;overflow-wrap:anywhere}
+.docket{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.docket li{border-bottom:1px solid var(--line)}
+.item{display:block;width:100%;text-align:left;background:none;border:0;padding:12px 8px}
+.item:hover{background:var(--sunk)}
+.item[aria-current=true]{background:var(--surface);box-shadow:inset 3px 0 0 var(--accent)}
+.item h3{font-size:16px;font-weight:700;overflow-wrap:anywhere}
+.item p{margin:3px 0 6px;color:var(--muted);font-size:13.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.chip{display:inline-block;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;border:1px solid var(--line);border-radius:3px;padding:1px 6px;color:var(--muted);background:var(--surface);white-space:nowrap}
+.chip.kind{border-color:var(--accent);color:var(--accent)}
+.chip.done{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.prog{background:var(--chalk);border-color:var(--chalk);color:var(--chalk-ink)}
+.chip.no{border-color:var(--danger);color:var(--danger)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:22px}
+.case-head{display:flex;flex-direction:column;gap:12px}
+.case-head h2{font-size:28px;font-weight:700;letter-spacing:-.015em;overflow-wrap:anywhere}
+.decision{border-left:4px solid var(--chalk);padding:4px 0 4px 14px}
+.decision p{margin:2px 0 0;font-size:18px;font-weight:500;line-height:1.4;max-width:62ch;overflow-wrap:anywhere}
+.context{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-width:68ch}
+.src{font-size:13.5px;overflow-wrap:anywhere}
+.src a{color:var(--accent)}
+.byline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.who{font-weight:600;font-size:13.5px}
+.vote{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:2px 10px;font-family:var(--mono);font-size:12.5px}
+.vote:hover{border-color:var(--muted)}
+.vote[aria-pressed=true]{background:var(--chalk);border-color:var(--chalk);color:var(--chalk-ink);font-weight:500}
+
+.block{display:flex;flex-direction:column;gap:10px;margin-bottom:26px}
+.block>h3{font-size:18px}
+.note{color:var(--muted);font-size:13.5px;margin:0;max-width:70ch}
+.err{color:var(--danger);font-size:13.5px;margin:0}
+
+/* issue tree */
+ul.tree{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+ul.tree ul.tree{margin:6px 0 0 9px;padding-left:16px;border-left:2px solid var(--line)}
+.nrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:3px;border-radius:6px}
+.nrow.sel{background:var(--sunk)}
+.nrow input[type=text]{flex:1 1 180px;padding:6px 8px}
+.nrow select{width:auto;padding:5px 4px;font-size:12.5px;flex:none}
+.caret{width:20px;background:none;border:0;padding:0;color:var(--muted);font-size:13px;flex:none}
+.ib{border:1px solid var(--line);background:var(--surface);border-radius:5px;min-width:26px;height:26px;padding:0 6px;font-size:12.5px;color:var(--muted);line-height:1}
+.ib:hover{color:var(--ink);border-color:var(--muted)}
+.ib.x:hover{color:var(--danger);border-color:var(--danger)}
+.nacts{display:flex;gap:3px;flex:none}
+.hint{margin:0 0 0 30px;color:var(--muted);font-size:12.5px}
+.detail{margin:2px 0 0 30px;font-family:var(--mono);font-size:12px;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}
+.ck{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--muted);flex:none}
+.ck input{width:auto}
+/* read-only tree */
+ul.rt{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:14px}
+ul.rt ul.rt{margin:5px 0 0 6px;padding-left:14px;border-left:2px solid var(--line)}
+ul.rt li>div{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;overflow-wrap:anywhere}
+ul.rt li>div>span:last-child{min-width:0}
+
+.sol{border:1px solid var(--line);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.sols{display:flex;flex-direction:column;gap:14px}
+.recline{margin:0;font-size:16px;font-weight:500;max-width:66ch;overflow-wrap:anywhere}
+.recmore{margin:0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;max-width:68ch}
+.cmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.lock{border:1px dashed var(--line);border-radius:8px;padding:22px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+
+.compose{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.compose textarea{max-width:72ch;min-height:84px}
+.compose select{width:auto}
+.replies{display:flex;flex-direction:column;gap:16px;margin-top:20px}
+.reply{display:flex;flex-direction:column;gap:5px;min-width:0}
+.reply .body{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;max-width:68ch}
+.reply .body.gone{color:var(--muted);font-style:italic}
+.kids{display:flex;flex-direction:column;gap:14px;margin-top:10px;padding-left:14px;border-left:2px solid var(--line)}
+.acts{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px}
+
+.form{display:flex;flex-direction:column;gap:14px}
+.form label,.fields label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13.5px;min-width:0}
+.form label small{font-weight:400;color:var(--muted)}
+.two,.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.empty{padding:22px 8px;color:var(--muted)}
+.empty h3{color:var(--ink);font-size:18px;margin-bottom:4px}
+
+.tool{border:1px solid var(--line);border-radius:8px;padding:18px;background:var(--surface);display:flex;flex-direction:column;gap:14px;min-width:0}
+.tool h3{font-size:19px}
+.tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start}
+.out{display:flex;flex-wrap:wrap;gap:8px 26px;border-top:1px solid var(--line);padding-top:12px}
+.out b{display:block;font-family:var(--mono);font-size:18px;font-weight:500;font-variant-numeric:tabular-nums}
+.out b.neg{color:var(--danger)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:6px 10px 6px 0;border-bottom:1px solid var(--line);white-space:nowrap}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;padding-right:0;padding-left:10px}
+th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) 68px minmax(0,110px) 28px;gap:6px;align-items:center}
+.srow input,.srow select{padding:6px 8px;font-size:13.5px}
+.xb{background:none;border:0;color:var(--muted);font-size:18px;line-height:1;padding:0}
+.xb:hover{color:var(--danger)}
+.clock{font-family:var(--mono);font-size:44px;font-variant-numeric:tabular-nums;line-height:1}
+.clock.over{color:var(--danger)}
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+.guide .tool ul{margin:0;padding-left:18px;font-size:14px}
+.sec{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+.sec>h2{font-size:22px}
+details.calc{border:1px solid var(--line);border-radius:8px;padding:10px 14px;background:var(--bg)}
+details.calc summary{font-weight:600;cursor:pointer}
+details.calc[open] summary{margin-bottom:12px}
+.cov{display:grid;grid-template-columns:minmax(90px,150px) minmax(0,1fr) auto;gap:6px 12px;align-items:center;font-size:14px}
+.bar{height:10px;background:var(--sunk);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.plain{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:6px;font-size:13.5px;max-width:calc(100% - 32px);z-index:5}
+.back{display:none}
+@media (max-width:860px){
+  .split{grid-template-columns:minmax(0,1fr)}
+  body[data-pane=list] #detail{display:none}
+  body[data-pane=detail] #list{display:none}
+  .back{display:inline-block;margin-bottom:10px}
+  .card{padding:16px}
+  .top h1{font-size:28px}
+  .case-head h2{font-size:23px}
+  .cmp{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Case Room</h1>
+      <p>Build your own structure. Publish it. See how others reasoned.</p>
+    </div>
+    <div class="top-side">
+      <span class="meta" id="stats"></span>
+      <button class="btn primary" id="newBtn" type="button">Post a case</button>
+    </div>
+  </header>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" data-tab="cases" aria-selected="true">Cases</button>
+    <button type="button" role="tab" data-tab="toolkit" aria-selected="false">Toolkit</button>
+    <button type="button" role="tab" data-tab="practice" aria-selected="false">My practice</button>
+  </nav>
+
+  <main id="tab-cases" class="split">
+    <section class="pane" id="list" aria-label="Cases">
+      <div class="controls">
+        <input type="search" id="q" placeholder="Search cases" aria-label="Search cases">
+        <div class="seg" role="group" aria-label="Filter by my progress">
+          <button type="button" data-prog="all" aria-pressed="true">All</button>
+          <button type="button" data-prog="new" aria-pressed="false">Not started</button>
+          <button type="button" data-prog="prog" aria-pressed="false">Started</button>
+          <button type="button" data-prog="done" aria-pressed="false">Solved</button>
+        </div>
+        <div class="row">
+          <select id="typeFilter" aria-label="Filter by case type"></select>
+          <button class="btn small" type="button" id="savedBtn" aria-pressed="false">Saved</button>
+        </div>
+      </div>
+      <button type="button" class="cotd" id="cotd" hidden></button>
+      <ul class="docket" id="docket"></ul>
+      <div id="listEmpty" class="empty" hidden></div>
+    </section>
+
+    <section class="pane" id="detail" aria-label="Open case">
+      <button class="link back" id="backBtn" type="button">← All cases</button>
+
+      <div class="card" id="welcome">
+        <h2 style="font-size:22px">Pick a case to solve</h2>
+        <p class="note" style="margin-top:6px">Each case opens a private workspace. Build an issue tree, attach calculations, write your recommendation, then publish. Other people's solutions unlock once you have published your own, and you can put any of them side by side with yours.</p>
+      </div>
+
+      <form class="card form" id="newForm" hidden novalidate>
+        <h2 style="font-size:22px">Post a case</h2>
+        <label for="fTitle">Case name
+          <input type="text" id="fTitle" maxlength="90" placeholder="e.g. Air India under Tata">
+        </label>
+        <div class="two">
+          <label for="fType">Case type <select id="fType"></select></label>
+          <label for="fInd">Industry <select id="fInd"></select></label>
+          <label for="fLevel">Difficulty <select id="fLevel"></select></label>
+          <label for="fSrc">Where it's from <select id="fSrc"></select></label>
+        </div>
+        <label for="fDecision">The decision <small>The one question a solver has to answer.</small>
+          <textarea id="fDecision" maxlength="320" rows="2" placeholder="Should the company…?"></textarea>
+        </label>
+        <label for="fContext">Case summary <small>Your own summary of the facts, numbers and constraints. Link to published cases; don't paste their text.</small>
+          <textarea id="fContext" maxlength="6000" rows="6"></textarea>
+        </label>
+        <label for="fLink">Source link <small>Optional. An article, filing or case page.</small>
+          <input type="url" id="fLink" maxlength="400" placeholder="https://">
+        </label>
+        <p class="err" id="fErr" hidden></p>
+        <div class="row">
+          <button class="btn primary" type="submit" id="fSubmit">Post case</button>
+          <button class="btn" type="button" id="fCancel">Cancel</button>
+        </div>
+      </form>
+
+      <article class="card" id="thread" hidden>
+        <div class="case-head" id="caseHead"></div>
+        <div class="subtabs" role="tablist" aria-label="Case sections">
+          <button type="button" role="tab" data-sub="work" aria-selected="true">My workspace</button>
+          <button type="button" role="tab" data-sub="sols" aria-selected="false" id="subSols">Solutions</button>
+          <button type="button" role="tab" data-sub="talk" aria-selected="false" id="subTalk">Discussion</button>
+        </div>
+
+        <div id="sub-work">
+          <div class="block">
+            <h3>1. The question</h3>
+            <label for="wRoot" class="note">Restate what the client needs decided, in your own words.</label>
+            <textarea id="wRoot" rows="2" maxlength="400"></textarea>
+          </div>
+          <div class="block">
+            <h3>2. Structure</h3>
+            <p class="note">Break the question into branches, then hang hypotheses, evidence, calculations and insights off them. Enter adds a branch below, Tab indents, Shift+Tab outdents.</p>
+            <div class="row">
+              <select id="fwSel" aria-label="Starting framework" style="width:auto;flex:0 1 260px"></select>
+              <button class="btn small" type="button" id="fwApply">Add as starting branches</button>
+            </div>
+            <div id="tree"></div>
+            <div class="row"><button class="btn small" type="button" id="addBranch">+ Add branch</button></div>
+            <p class="note" id="mece">Before you move on: do any two branches overlap? Is there a cause or option that fits none of them? A framework gives you starting branches; rename, cut and add until the tree fits this case.</p>
+          </div>
+          <div class="block">
+            <h3>3. Calculations</h3>
+            <p class="note">Results are added to your tree under the branch you last clicked, with the assumptions kept alongside.</p>
+            <details class="calc"><summary>Open the calculators</summary><div class="tools" id="caseCalc"></div></details>
+          </div>
+          <div class="block">
+            <h3>4. Recommendation</h3>
+            <p class="note">Answer first, as you would to a client.</p>
+            <div class="form">
+              <label for="rA">Recommendation <small>One sentence.</small><textarea id="rA" rows="2" maxlength="400"></textarea></label>
+              <label for="rW">Supporting reasons<textarea id="rW" rows="3" maxlength="1500"></textarea></label>
+              <div class="two">
+                <label for="rR">Risks<textarea id="rR" rows="3" maxlength="1000"></textarea></label>
+                <label for="rN">Next steps<textarea id="rN" rows="3" maxlength="1000"></textarea></label>
+              </div>
+            </div>
+          </div>
+          <div class="block" style="margin-bottom:0">
+            <p class="err" id="pubErr" hidden></p>
+            <div class="row">
+              <button class="btn primary" type="button" id="pubBtn">Publish my solution</button>
+              <span class="meta" id="pubState"></span>
+            </div>
+          </div>
+        </div>
+
+        <div id="sub-sols" hidden></div>
+
+        <div id="sub-talk" hidden>
+          <div class="compose">
+            <textarea id="topText" maxlength="6000" placeholder="Ask a clarifying question or challenge an assumption." aria-label="Your reply"></textarea>
+            <div class="row">
+              <select id="topKind" aria-label="Type of reply"></select>
+              <button class="btn primary" type="button" id="topPost">Post reply</button>
+            </div>
+          </div>
+          <div class="replies" id="replies"></div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <section id="tab-toolkit" hidden>
+    <div class="sec">
+      <h2>Calculators</h2>
+      <div class="tools" id="kitCalc"></div>
+    </div>
+    <div class="sec" style="margin-top:28px">
+      <h2>Framework guide</h2>
+      <p class="note">A framework is a checklist for where to look. It does not answer the case. Pick the one that matches the decision, then cut it down to the branches that matter.</p>
+      <div class="guide" id="guide"></div>
+    </div>
+  </section>
+
+  <section id="tab-practice" hidden>
+    <div class="tools">
+      <div class="tool">
+        <h3>Practice coverage</h3>
+        <p class="note">Cases you have started, by type. This shows where you have practised, not how good you are.</p>
+        <div class="cov" id="cov"></div>
+        <p class="note" id="covTip"></p>
+      </div>
+      <div class="tool">
+        <h3>My cases</h3>
+        <ul class="plain" id="myCases"></ul>
+        <p class="note" id="myEmpty" hidden>Nothing started yet. Open a case and add your first branch.</p>
+      </div>
+      <div class="tool">
+        <h3>Profile</h3>
+        <label for="meName" style="font-weight:600;font-size:13.5px">Display name</label>
+        <input type="text" id="meName" maxlength="40" placeholder="Your name">
+        <p class="note">This prototype stores everything in this browser only. Nothing is sent anywhere, and other people cannot see your work yet.</p>
+        <div class="row"><button class="link danger" type="button" id="resetBtn">Erase my local data</button></div>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+var TYPES=["Profitability","Market entry","Growth","M&A","Pricing","Operations","Market sizing","Other"];
+var INDS=["Consumer","Technology","Telecom","Energy","Financial services","Healthcare","Automotive","Aviation","Manufacturing","Retail","Other"];
+var LEVELS=["Beginner","Intermediate","Advanced"];
+var SRCS=["In the news","Course case","Competition brief","Interview case"];
+var KINDS=["Question","Take","Counterpoint","Number"];
+var NT={q:"Branch",h:"Hypothesis",e:"Evidence",n:"Calculation",i:"Insight",r:"Risk"};
+var STAT=["Untested","Investigating","Supported","Rejected"];
+var FW=[
+ {id:"profit",name:"Profitability tree",use:"Profits are falling or below target. Split profit into revenue and cost, then find which branch moved.",trap:"Listing every branch. Ask for the data that tells you which one changed, and go deep only there.",
+  b:[["Revenue: price","Has price or mix changed? Discounts, channel mix, product mix."],["Revenue: volume","Fewer customers, or less per customer? Share loss or market shrinking?"],["Fixed costs","Capacity, overheads, rent, salaried headcount."],["Variable costs","Raw material, logistics, commissions, per-unit labour."],["Outside the firm","Is it the whole industry or only this company?"]]},
+ {id:"3c",name:"3C + context",use:"A broad strategy question with no obvious structure. Good for a first pass.",trap:"Describing each C without linking it back to the decision.",
+  b:[["Company","Capabilities, cost position, brand, cash."],["Customers","Segments, needs, willingness to pay, how they buy."],["Competitors","Who else, their likely response, their advantages."],["Context","Regulation, technology, macro and supply-side shifts."]]},
+ {id:"entry",name:"Market entry",use:"Should the company enter a new geography, segment or category, and how?",trap:"Proving the market is attractive and stopping. The question is whether this company can win there.",
+  b:[["Market attractiveness","Size, growth, margins, segments."],["Competitive landscape","Incumbents, barriers, likely retaliation."],["Our right to win","What transfers from the core business? What is missing?"],["Entry mode","Build, buy or partner. Pilot or full launch."],["Economics and risk","Investment, breakeven, what kills the plan."]]},
+ {id:"ma",name:"M&A screen",use:"Should the company buy, merge with or sell a business?",trap:"Counting synergies that need perfect integration, and ignoring what the price already assumes.",
+  b:[["Strategic rationale","What does the deal let us do that we could not do alone?"],["Target on its own","Market position, growth, profitability, quality of the asset."],["Synergies","Revenue and cost. How certain, how soon?"],["Price and structure","Valuation, cash or stock, who captures the synergy value."],["Integration risk","Culture, systems, key people, regulators."]]},
+ {id:"porter",name:"Porter's five forces",use:"How attractive is this industry, and where does the profit go?",trap:"Using it for a company-level decision. It describes an industry, so pair it with what the firm should do.",
+  b:[["Rivalry","Number of players, growth, exit barriers, price wars."],["Threat of entry","Capital, scale, regulation, brand, distribution."],["Substitutes","Other ways the customer solves the same problem."],["Supplier power","Concentration, switching cost, forward integration."],["Buyer power","Concentration, price sensitivity, switching cost."]]},
+ {id:"pricing",name:"Pricing",use:"What price should a new or existing product carry?",trap:"Stopping at cost-plus. Cost sets the floor; customer value sets the ceiling.",
+  b:[["Cost floor","Unit cost, and the volume it assumes."],["Competitor reference","What do alternatives cost, and how do we differ?"],["Value to customer","What is it worth in money saved or earned?"],["Objective and constraints","Share or margin? Channel, regulation, brand."]]},
+ {id:"4p",name:"Marketing mix (4P)",use:"Launch or reposition a product once the target segment is chosen.",trap:"Starting with the 4Ps before segmenting and choosing a target.",
+  b:[["Product","Features, range, what job it does for the target."],["Price","Level, structure, discounts."],["Place","Channels, coverage, who owns the customer."],["Promotion","Message, media, the one thing to be known for."]]},
+ {id:"ansoff",name:"Growth options (Ansoff)",use:"Where should growth come from?",trap:"Jumping to new products in new markets before the core is exhausted.",
+  b:[["Same product, same market","Share gain, usage, pricing, retention."],["Same product, new market","New geographies, segments or channels."],["New product, same market","Adjacent offers to existing customers."],["New product, new market","Diversification. Highest risk; why us?"]]},
+ {id:"vchain",name:"Value chain",use:"Operations or turnaround cases. Find where cost, time or quality is lost.",trap:"Describing every step. Find the bottleneck and size it.",
+  b:[["Sourcing","Procurement, supplier terms, inventory."],["Operations","Capacity, utilisation, yield, quality."],["Distribution","Logistics, channel cost, service levels."],["Sales and service","Conversion, after-sales, complaints."],["Support functions","People, systems, overhead."]]},
+ {id:"swot",name:"SWOT",use:"A quick situation summary before choosing a sharper framework.",trap:"Ending with four lists and no recommendation.",
+  b:[["Strengths","Internal advantages that matter for this decision."],["Weaknesses","Internal gaps that matter for this decision."],["Opportunities","External openings."],["Threats","External risks."]]}
+];
+var TYPEFW={"Profitability":"profit","Market entry":"entry","Growth":"ansoff","M&A":"ma","Pricing":"pricing","Operations":"vchain","Market sizing":"3c","Other":"3c"};
+
+/* ---------- seed content: the starter library and example solutions ---------- */
+var nseq=0;function nid(){return "n"+Date.now().toString(36)+(nseq++).toString(36)+Math.random().toString(36).slice(2,5)}
+function N(t,x,k,s){return {id:"s"+(nseq++),t:t,x:x,s:s||"",k:k||[]}}
+function LC(id,title,type,ind,level,src,decision,context){return {id:id,title:title,type:type,ind:ind,level:level,src:src,decision:decision,context:context,link:"",house:true,authorId:null,createdAt:1791042300000}}
+var SEED={
+ cases:[
+  LC("lib-cement-margins","Practice case: a cement maker's falling margins","Profitability","Manufacturing","Beginner","Interview case","Operating margin has fallen for two years while sales volume is flat. Why, and what should the CEO do?","A fictional practice case in the style of a first-round consulting interview.\n\nThe client is a regional cement producer with three plants. Volumes are steady, but profit has dropped. No other data is given up front: decide what you would ask for, in what order, and why."),
+  LC("lib-jio-launch","Jio's launch pricing","Market entry","Telecom","Intermediate","In the news","You run an incumbent telecom operator in 2016. Do you match Jio's prices, hold your prices, or do something else?","Reliance Jio launched commercial services in September 2016 on a 4G-only network, with free voice calls and an introductory period of free data.\n\nIncumbents carried older 2G and 3G networks, debt from spectrum purchases, and revenue that still leaned on voice. Think about the entrant's cost structure, how long it could sustain the offer, and what a price war does to each player."),
+  LC("lib-zomato-blinkit","Zomato and Blinkit","M&A","Technology","Intermediate","In the news","Was buying a quick-commerce business the right move for a food delivery company, or a distraction from its core?","In 2022 Zomato agreed to acquire Blinkit (formerly Grofers) in an all-stock deal. Food delivery was still working towards profitability, and quick commerce needed dense dark-store networks and heavy upfront spend.\n\nThings to weigh: what the two businesses share (customers, riders, app traffic), what they don't (inventory, dark stores), and what the alternative use of that capital and management attention would have been."),
+  LC("lib-air-india","Air India under Tata","Operations","Aviation","Advanced","In the news","What should the turnaround fix first: fleet, service quality, or cost?","The Tata Group took back control of Air India in January 2022 after the government privatised it. In 2023 the airline placed an order for 470 aircraft with Airbus and Boeing, and in November 2024 Vistara was merged into it.\n\nA full-service airline turnaround has long lead times on aircraft, legacy people and systems to integrate, and a low-cost competitor that dominates the domestic market. Sequence matters because everything cannot be fixed at once."),
+  LC("lib-tata-nano","Tata Nano positioning","Pricing","Automotive","Intermediate","In the news","Did selling it as the cheapest car hurt it, and how would you have priced and positioned it instead?","The Nano was unveiled in 2008 and went on sale in 2009 at a headline price of about ₹1 lakh, aimed at families moving up from two-wheelers. Sales stayed well below the plan and production ended in 2018.\n\nConsider who the buyer really was, what a first car signals to its owner, and whether the price point or the message was the problem."),
+  LC("lib-netflix-ads","Netflix and the ad-supported tier","Growth","Technology","Intermediate","In the news","Was a cheaper plan with ads the right growth lever, given the risk of existing subscribers trading down?","After reporting subscriber losses in the first half of 2022, Netflix launched a lower-priced ad-supported plan in November 2022 and later began restricting password sharing.\n\nThe trade-off is new subscribers and advertising revenue against cannibalisation of full-price plans and a brand that had always been ad-free."),
+  LC("lib-starbucks-india","Starbucks enters India","Market entry","Consumer","Beginner","In the news","Was a 50:50 joint venture the right way in, compared with going alone or franchising?","Starbucks opened in India in 2012 through a 50:50 joint venture with the Tata Group. India was a tea-first market with established local café chains and price-sensitive customers.\n\nConsider what each partner brought, what Starbucks gave up, and how you would judge the choice of entry mode today."),
+  LC("lib-ev-charging","Guesstimate: EV two-wheeler charging in Hyderabad","Market sizing","Energy","Beginner","Interview case","How many public charging points for electric two-wheelers would Hyderabad need five years from now?","A fictional practice guesstimate. There is no single right number; the reasoning is what gets judged.\n\nState every assumption: population, two-wheelers per household, share that are electric, how often riders charge away from home, and how many vehicles one charging point serves in a day.")
+ ],
+ solutions:[
+  {id:"ex-cement-a",caseId:"lib-cement-margins",authorId:"example-a",example:true,createdAt:1791042300000,
+   tree:{id:"root",t:"q",x:"Why has margin fallen with flat volume, and what should the CEO do?",k:[
+     N("i","Flat volume rules out a demand collapse, so the answer sits in price per tonne or cost per tonne"),
+     N("q","Revenue per tonne",[N("q","Realised price: dealer discounts, regional price trend"),N("q","Mix: premium versus basic grades, trade versus bulk buyers")]),
+     N("q","Cost per tonne",[N("q","Energy and fuel",[N("h","Fuel cost per tonne has risen faster than price",[],"Investigating")]),N("q","Raw materials: limestone, fly ash"),N("q","Freight: lead distance, road versus rail"),N("q","Fixed cost: any new capacity raises fixed cost per tonne when volume is flat")])]},
+   rec:{a:"Split margin into price and cost per tonne for each plant over three years, then act on the line that moved most. My first bet is fuel.",w:"Volume is flat, so the change is per tonne.\nEnergy is the largest and most volatile cost line in cement.\nPlant-level data shows whether it is one site or all three.",r:"If regional prices are falling, cost work alone will not restore margin.",n:"Request per-tonne price and cost by plant.\nBenchmark fuel mix against two peers.\nReview dealer discount policy."}},
+  {id:"ex-cement-b",caseId:"lib-cement-margins",authorId:"example-b",example:true,createdAt:1791042301000,
+   tree:{id:"root",t:"q",x:"Is this an industry problem or a company problem, and what follows from each?",k:[
+     N("q","Is it the industry or only us?",[N("h","Peers' margins fell by a similar amount, so the cause is industry-wide",[],"Untested"),N("e","Needed: margins of two listed regional peers over the same two years")]),
+     N("q","If industry-wide",[N("q","Input cost shock: can we pass it on in price?"),N("q","Regional overcapacity pushing prices down"),N("r","Cost cuts alone will not restore margin if regional prices keep falling")]),
+     N("q","If only us",[N("q","Which of the three plants drags the average?",[N("h","One plant has much higher cost per tonne: older kiln or longer freight",[],"Untested")]),N("q","Sales side: dealer discounts, lost premium customers")]),
+     N("i","Settling industry versus company first removes half the tree before asking for any cost data")]},
+   rec:{a:"First establish whether peers saw the same margin fall. If yes, focus on pricing discipline and pass-through; if no, find and fix the weakest plant.",w:"The right action differs completely between the two worlds.\nPeer margins are public and quick to check.\nA plant-level view isolates a company-specific cause fast.",r:"Peers may not be comparable if their plant locations and fuel sources differ.",n:"Pull peer margins.\nBuild cost per tonne by plant.\nDecide which half of the tree to pursue."}},
+  {id:"ex-jio-a",caseId:"lib-jio-launch",authorId:"example-a",example:true,createdAt:1791042302000,
+   tree:{id:"root",t:"q",x:"How should an incumbent respond to an entrant pricing data near zero?",k:[
+     N("q","How long can the entrant sustain the offer?",[N("q","Cost base: new 4G-only network, low marginal cost per GB"),N("q","Parent's balance sheet and willingness to fund losses"),N("h","The entrant can sustain low prices for years, so waiting it out fails",[],"Investigating")]),
+     N("q","What do we lose under each response?",[N("q","Match everywhere: revenue per user falls across the whole base"),N("q","Hold prices: the heaviest data users leave first"),N("q","Segment: match only for customers at risk of switching")]),
+     N("q","What can we change structurally?",[N("q","Speed up 4G rollout and retire older networks"),N("q","Consolidate or share infrastructure to cut cost"),N("r","A price war on top of spectrum debt may not be survivable alone")])]},
+   rec:{a:"Match selectively on data for customers at risk, accelerate 4G, and pursue consolidation to bring cost down.",w:"The entrant's cost advantage is structural, so it will not be temporary.\nMatching across the base destroys revenue from customers who would have stayed.\nScale is the only durable answer to a lower-cost rival.",r:"Selective matching leaks: customers learn to threaten to leave.",n:"Identify at-risk segments by data usage.\nRe-plan network spend towards 4G.\nOpen merger and tower-sharing talks."}}
+ ]};
+var SEEDNAMES={"example-a":"Example solution A","example-b":"Example solution B"};
+
+/* ---------- storage layer ----------
+   Every screen talks to Store and nothing else. Today it keeps data in this browser.
+   For a hosted version (e.g. GitHub Pages + Supabase or Firebase), write another object
+   with the same methods, backed by that service, and assign it to Store. No screen changes. */
+function LocalStore(){
+  var P="caseroom.v1.",mem={},ok=true;
+  try{localStorage.setItem(P+"t","1");localStorage.removeItem(P+"t")}catch(e){ok=false}
+  function read(k,d){if(!ok)return k in mem?mem[k]:d;try{var v=localStorage.getItem(P+k);return v?JSON.parse(v):d}catch(e){return d}}
+  function write(k,v){mem[k]=v;if(ok)try{localStorage.setItem(P+k,JSON.stringify(v))}catch(e){}}
+  var me=read("me",null);if(!me){me={id:"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:""};write("me",me)}
+  return {
+    persistent:ok,
+    me:function(){return me},
+    setName:function(n){me.name=n;write("me",me);return Promise.resolve()},
+    list:function(c){return Promise.resolve((SEED[c]||[]).concat(read(c,[])))},
+    put:function(c,doc){var a=read(c,[]),i=a.findIndex(function(x){return x.id===doc.id});if(i>=0)a[i]=doc;else a.push(doc);write(c,a);return Promise.resolve(doc)},
+    remove:function(c,id){write(c,read(c,[]).filter(function(x){return x.id!==id}));return Promise.resolve()},
+    reset:function(){["cases","replies","solutions","work","votes","saved","me"].forEach(function(k){delete mem[k];if(ok)try{localStorage.removeItem(P+k)}catch(e){}});return Promise.resolve()}
+  }}
+var Store=LocalStore(),ME=Store.me();
+
+var D={cases:[],replies:[],solutions:[],work:[],votes:{},saved:{}};
+var S={tab:"cases",sub:"work",sel:null,view:"welcome",prog:"all",type:"All",onlySaved:false,q:"",replyTo:null,drafts:{},confirm:null,selNode:null,focus:null,compare:null};
+var $=function(s){return document.querySelector(s)};
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function opt(sel,list){list.forEach(function(n){sel.appendChild(el("option",null,n))})}
+function newId(p){return p+Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function ago(t){var s=Math.max(0,(Date.now()-t)/1000);if(s<60)return"just now";if(s<3600)return Math.floor(s/60)+"m ago";if(s<86400)return Math.floor(s/3600)+"h ago";if(s<86400*30)return Math.floor(s/86400)+"d ago";return new Date(t).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"})}
+/* Indian units: lakh and crore */
+function fmt(n){if(!isFinite(n))return"—";var a=Math.abs(n),s=n<0?"−":"";
+  if(a>=1e7)return s+(a/1e7).toLocaleString("en-IN",{maximumFractionDigits:2})+" crore";
+  if(a>=1e5)return s+(a/1e5).toLocaleString("en-IN",{maximumFractionDigits:2})+" lakh";
+  return s+a.toLocaleString("en-IN",{maximumFractionDigits:2})}
+var toastT;function toast(m){var t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3800)}
+function nameOf(id){if(id===ME.id)return (ME.name||"You");return SEEDNAMES[id]||"Member"}
+function who(id,house){return el("span","who",house||!id?"Case Room library":nameOf(id)+(id===ME.id&&ME.name?" (you)":""))}
+function voteBtn(id){var on=!!D.votes[id],b=el("button","vote",on?"▲ Helpful":"▲ Mark helpful");b.type="button";b.setAttribute("aria-pressed",on?"true":"false");
+  b.addEventListener("click",function(){if(D.votes[id]){delete D.votes[id];Store.remove("votes",id)}else{D.votes[id]=true;Store.put("votes",{id:id})}renderCase()});return b}
+function delBtn(key,fn){var b=el("button","link danger",S.confirm===key?"Confirm delete":"Delete");b.type="button";
+  b.addEventListener("click",function(){if(S.confirm===key){S.confirm=null;fn()}else{S.confirm=key;renderCase();setTimeout(function(){if(S.confirm===key){S.confirm=null;renderCase()}},4000)}});return b}
+
+/* ---------- workspace model ---------- */
+function cur(){return D.cases.find(function(x){return x.id===S.sel})}
+function workOf(caseId){return D.work.find(function(w){return w.caseId===caseId&&w.userId===ME.id})}
+function curWork(){var c=cur(),w=workOf(c.id);if(!w){w={id:c.id+"__"+ME.id,caseId:c.id,userId:ME.id,tree:{id:"root",t:"q",x:c.decision,k:[]},rec:{a:"",w:"",r:"",n:""},skip:false,updatedAt:0};D.work.push(w)}return w}
+function count(n){return n.k.reduce(function(a,k){return a+1+count(k)},0)}
+function depth(n){return n.k.length?1+Math.max.apply(null,n.k.map(depth)):0}
+function countType(n,t){return n.k.reduce(function(a,k){return a+(k.t===t?1:0)+countType(k,t)},0)}
+function started(w){return !!w&&(w.tree.k.length>0||!!w.rec.a.trim())}
+function mySol(caseId){return D.solutions.find(function(s){return s.caseId===caseId&&s.authorId===ME.id})}
+function progOf(caseId){return mySol(caseId)?"done":started(workOf(caseId))?"prog":"new"}
+function find(root,id,parent){if(root.id===id)return {node:root,parent:parent||null};for(var i=0;i<root.k.length;i++){var r=find(root.k[i],id,root);if(r)return r}return null}
+var saveT;function touch(structural){var w=curWork();w.updatedAt=Date.now();clearTimeout(saveT);saveT=setTimeout(function(){Store.put("work",w)},300);
+  if(structural){renderList();renderPubState()}}
+function mk(t){return {id:nid(),t:t||"q",x:"",s:"",k:[]}}
+function addAfter(id){var w=curWork(),f=find(w.tree,id),n=mk("q");if(!f||!f.parent)return;f.parent.k.splice(f.parent.k.indexOf(f.node)+1,0,n);S.focus=n.id;touch(true);renderTree()}
+function addChild(id){var w=curWork(),f=find(w.tree,id),n=mk("q");if(!f)return;f.node.k.push(n);f.node.c=false;S.focus=n.id;touch(true);renderTree()}
+function removeNode(id){var w=curWork(),f=find(w.tree,id);if(!f||!f.parent)return;var i=f.parent.k.indexOf(f.node);f.parent.k.splice(i,1);
+  S.focus=i>0?f.parent.k[i-1].id:(f.parent.id!=="root"?f.parent.id:null);if(S.selNode===id)S.selNode=null;touch(true);renderTree()}
+function indent(id){var w=curWork(),f=find(w.tree,id);if(!f||!f.parent)return;var i=f.parent.k.indexOf(f.node);if(i<1)return;var p=f.parent.k[i-1];f.parent.k.splice(i,1);p.k.push(f.node);p.c=false;S.focus=id;touch(true);renderTree()}
+function outdent(id){var w=curWork(),f=find(w.tree,id);if(!f||!f.parent||f.parent.id==="root")return;var g=find(w.tree,f.parent.id).parent;f.parent.k.splice(f.parent.k.indexOf(f.node),1);g.k.splice(g.k.indexOf(f.parent)+1,0,f.node);S.focus=id;touch(true);renderTree()}
+function move(id,d){var w=curWork(),f=find(w.tree,id);if(!f||!f.parent)return;var a=f.parent.k,i=a.indexOf(f.node),j=i+d;if(j<0||j>=a.length)return;a.splice(i,1);a.splice(j,0,f.node);S.focus=id;touch(true);renderTree()}
+
+function renderTree(){
+  var w=curWork(),host=$("#tree");host.textContent="";
+  if(!w.tree.k.length)host.appendChild(el("p","note","Your tree is empty. Add a branch, or start from a framework and reshape it."));
+  else host.appendChild(ulFor(w.tree));
+  if(S.focus){var f=host.querySelector('[data-n="'+S.focus+'"]');if(f){f.focus();var L=f.value.length;try{f.setSelectionRange(L,L)}catch(e){}}S.focus=null}
+}
+function ib(label,title,fn,cls){var b=el("button","ib"+(cls?" "+cls:""),label);b.type="button";b.title=title;b.setAttribute("aria-label",title);b.addEventListener("click",fn);return b}
+function ulFor(parent){var ul=el("ul","tree");parent.k.forEach(function(n){ul.appendChild(liFor(n))});return ul}
+function liFor(n){
+  var li=el("li"),row=el("div","nrow"+(S.selNode===n.id?" sel":""));
+  var car=el("button","caret",n.k.length?(n.c?"▸":"▾"):"");car.type="button";car.disabled=!n.k.length;car.setAttribute("aria-label",n.c?"Expand":"Collapse");
+  car.addEventListener("click",function(){n.c=!n.c;touch();renderTree()});row.appendChild(car);
+  var ts=el("select");ts.setAttribute("aria-label","Node type");Object.keys(NT).forEach(function(k){var o=el("option",null,NT[k]);o.value=k;ts.appendChild(o)});ts.value=n.t;
+  ts.addEventListener("change",function(){n.t=ts.value;if(n.t==="h"&&!n.s)n.s="Untested";S.focus=n.id;touch();renderTree()});row.appendChild(ts);
+  var inp=el("input");inp.type="text";inp.maxLength=240;inp.value=n.x;inp.dataset.n=n.id;inp.setAttribute("aria-label",NT[n.t]+" text");
+  inp.placeholder={q:"A question this branch answers",h:"I believe that… because…",e:"A fact from the case, with its number",n:"What the number shows",i:"So what? What this means for the decision",r:"What could make this wrong"}[n.t];
+  inp.addEventListener("input",function(){n.x=inp.value;touch()});
+  inp.addEventListener("focus",function(){S.selNode=n.id;document.querySelectorAll(".nrow.sel").forEach(function(r){r.classList.remove("sel")});row.classList.add("sel")});
+  inp.addEventListener("keydown",function(ev){
+    if(ev.key==="Enter"){ev.preventDefault();addAfter(n.id)}
+    else if(ev.key==="Tab"){ev.preventDefault();if(ev.shiftKey)outdent(n.id);else indent(n.id)}
+    else if(ev.key==="Backspace"&&!inp.value&&!n.k.length){ev.preventDefault();removeNode(n.id)}
+    else if(ev.altKey&&ev.key==="ArrowUp"){ev.preventDefault();move(n.id,-1)}
+    else if(ev.altKey&&ev.key==="ArrowDown"){ev.preventDefault();move(n.id,1)}});
+  row.appendChild(inp);
+  if(n.t==="h"){var ss=el("select");ss.setAttribute("aria-label","Hypothesis status");opt(ss,STAT);ss.value=n.s||"Untested";ss.addEventListener("change",function(){n.s=ss.value;touch()});row.appendChild(ss)}
+  if(n.t==="q"){var lb=el("label","ck"),cb=el("input");cb.type="checkbox";cb.checked=!!n.ok;cb.addEventListener("change",function(){n.ok=cb.checked;touch()});lb.appendChild(cb);lb.appendChild(document.createTextNode("looked into"));row.appendChild(lb)}
+  var a=el("div","nacts");
+  a.appendChild(ib("+ sub","Add a sub-branch",function(){addChild(n.id)}));
+  a.appendChild(ib("←","Outdent",function(){outdent(n.id)}));a.appendChild(ib("→","Indent under the branch above",function(){indent(n.id)}));
+  a.appendChild(ib("↑","Move up",function(){move(n.id,-1)}));a.appendChild(ib("↓","Move down",function(){move(n.id,1)}));
+  a.appendChild(ib("×","Delete this and everything under it",function(){removeNode(n.id)},"x"));
+  row.appendChild(a);li.appendChild(row);
+  if(n.h)li.appendChild(el("p","hint",n.h));
+  if(n.d)li.appendChild(el("div","detail",n.d));
+  if(n.k.length&&!n.c)li.appendChild(ulFor(n));
+  return li}
+function viewTree(parent){var ul=el("ul","rt");parent.k.forEach(function(n){var li=el("li"),d=el("div");
+  if(n.t!=="q")d.appendChild(el("span","chip kind",NT[n.t]));
+  if(n.t==="h")d.appendChild(el("span","chip"+(n.s==="Supported"?" done":n.s==="Rejected"?" no":n.s==="Investigating"?" prog":""),n.s||"Untested"));
+  d.appendChild(el("span",null,n.x||"(blank)"));li.appendChild(d);
+  if(n.d)li.appendChild(el("div","detail",n.d));if(n.k.length)li.appendChild(viewTree(n));ul.appendChild(li)});return ul}
+
+function renderPubState(){var c=cur();if(!c)return;var s=mySol(c.id),w=workOf(c.id);
+  $("#pubBtn").textContent=s?"Publish my changes":"Publish my solution";
+  $("#pubState").textContent=s?"Published "+ago(s.createdAt)+(w&&w.updatedAt>s.createdAt?" · you have unpublished edits":""):"Saved automatically as you type"}
+function loadWorkspace(){var w=curWork(),c=cur();
+  $("#wRoot").value=w.tree.x;$("#rA").value=w.rec.a;$("#rW").value=w.rec.w;$("#rR").value=w.rec.r;$("#rN").value=w.rec.n;
+  $("#fwSel").value=TYPEFW[c.type]||"3c";$("#pubErr").hidden=true;S.selNode=null;renderTree();renderPubState()}
+function publish(){var c=cur(),w=curWork(),err=$("#pubErr");
+  if(count(w.tree)<3||!w.rec.a.trim()){err.textContent="Add at least three nodes to your tree and write a one-sentence recommendation before publishing.";err.hidden=false;return}
+  err.hidden=true;var sol={id:"sol_"+c.id+"_"+ME.id,caseId:c.id,authorId:ME.id,tree:clone(w.tree),rec:clone(w.rec),createdAt:Date.now()};
+  D.solutions=D.solutions.filter(function(s){return s.id!==sol.id});D.solutions.push(sol);Store.put("solutions",sol);
+  toast("Published. Other solutions are now unlocked.");S.sub="sols";S.compare=null;renderAll()}
+
+/* ---------- list ---------- */
+function renderList(){
+  var q=S.q.trim().toLowerCase();
+  var rows=D.cases.filter(function(c){
+    if(S.type!=="All"&&c.type!==S.type)return false;
+    if(S.onlySaved&&!D.saved[c.id])return false;
+    if(S.prog!=="all"&&progOf(c.id)!==S.prog)return false;
+    return !q||(c.title+" "+c.decision+" "+(c.context||"")+" "+(c.ind||"")).toLowerCase().indexOf(q)>=0});
+  rows.sort(function(a,b){return b.createdAt-a.createdAt});
+  var ul=$("#docket");ul.textContent="";
+  rows.forEach(function(c){
+    var li=el("li"),b=el("button","item");b.type="button";b.setAttribute("aria-current",S.sel===c.id&&S.view==="thread"?"true":"false");
+    b.appendChild(el("h3",null,c.title));b.appendChild(el("p",null,c.decision));
+    var m=el("div","row"),p=progOf(c.id);m.appendChild(el("span","chip",c.type||"Other"));
+    if(p==="done")m.appendChild(el("span","chip done","Solved"));else if(p==="prog")m.appendChild(el("span","chip prog","Started"));
+    var ns=D.solutions.filter(function(s){return s.caseId===c.id}).length;
+    m.appendChild(el("span","meta",(c.level||"")+(ns?" · "+ns+(ns===1?" solution":" solutions"):"")+(D.saved[c.id]?" · saved":"")));
+    b.appendChild(m);b.addEventListener("click",function(){openCase(c.id)});li.appendChild(b);ul.appendChild(li)});
+  var cd=$("#cotd");
+  if(D.cases.length&&!q&&!S.onlySaved&&S.type==="All"&&S.prog==="all"){var ord=D.cases.slice().sort(function(a,b){return a.id<b.id?-1:1}),day=Math.floor((Date.now()+19800000)/86400000),pick=ord[day%ord.length];
+    cd.hidden=false;cd.textContent="";cd.appendChild(el("span","eyebrow","Case of the day"));cd.appendChild(el("b",null,pick.title));cd.onclick=function(){openCase(pick.id)}}
+  else cd.hidden=true;
+  var e=$("#listEmpty");e.textContent="";e.hidden=rows.length>0;
+  if(!rows.length){e.appendChild(el("h3",null,"No cases match"));e.appendChild(el("p","note","Clear the search or change the filters."))}
+  var done=D.cases.filter(function(c){return progOf(c.id)==="done"}).length;
+  $("#stats").textContent=D.cases.length+" cases · "+done+" solved by you"+(Store.persistent?"":" · not saving (browser storage is blocked)");
+}
+
+/* ---------- open case ---------- */
+function renderCase(){
+  var c=cur();
+  if(S.view==="thread"&&!c){S.view="welcome";S.sel=null}
+  $("#welcome").hidden=S.view!=="welcome";$("#newForm").hidden=S.view!=="new";$("#thread").hidden=!(S.view==="thread"&&c);
+  if(S.view!=="thread"||!c)return;
+  var h=$("#caseHead");h.textContent="";
+  var r0=el("div","row");[c.type,c.ind,c.level,c.src].forEach(function(x){if(x)r0.appendChild(el("span","chip",x))});h.appendChild(r0);
+  h.appendChild(el("h2",null,c.title));
+  var d=el("div","decision");d.appendChild(el("span","eyebrow","The decision"));d.appendChild(el("p",null,c.decision));h.appendChild(d);
+  if(c.context)h.appendChild(el("p","context",c.context));
+  if(c.link){var ok=false;try{var u=new URL(c.link);ok=u.protocol==="https:"||u.protocol==="http:"}catch(e){}
+    if(ok){var sp=el("div","src","Source: ");var a=el("a",null,c.link);a.href=c.link;a.target="_blank";a.rel="noopener noreferrer";sp.appendChild(a);h.appendChild(sp)}}
+  var by=el("div","byline");by.appendChild(who(c.authorId,c.house));
+  var sb=el("button","link",D.saved[c.id]?"Saved ✓":"Save");sb.type="button";sb.addEventListener("click",function(){if(D.saved[c.id]){delete D.saved[c.id];Store.remove("saved",c.id)}else{D.saved[c.id]=true;Store.put("saved",{id:c.id})}renderAll()});by.appendChild(sb);
+  if(c.authorId===ME.id)by.appendChild(delBtn(c.id,function(){D.cases=D.cases.filter(function(x){return x.id!==c.id});Store.remove("cases",c.id);S.sel=null;S.view="welcome";setPane("list");toast("Case deleted");renderAll()}));
+  h.appendChild(by);
+  ["work","sols","talk"].forEach(function(k){$("#sub-"+k).hidden=S.sub!==k});
+  document.querySelectorAll("[data-sub]").forEach(function(b){b.setAttribute("aria-selected",b.dataset.sub===S.sub?"true":"false")});
+  var sols=D.solutions.filter(function(s){return s.caseId===c.id}),mine=D.replies.filter(function(r){return r.caseId===c.id});
+  $("#subSols").textContent="Solutions ("+sols.length+")";$("#subTalk").textContent="Discussion ("+mine.filter(function(r){return !r.deleted}).length+")";
+  renderSolutions(c,sols);renderTalk(c,mine);renderPubState()}
+
+function solCard(s,c,isMine){
+  var card=el("div","sol"),hd=el("div","byline");hd.appendChild(who(s.authorId));
+  if(s.example)hd.appendChild(el("span","chip","Written for this prototype"));
+  hd.appendChild(el("span","meta",count(s.tree)+" nodes · "+countType(s.tree,"h")+" hypotheses"));card.appendChild(hd);
+  var q=el("div");q.appendChild(el("span","eyebrow","Their question"));q.appendChild(el("p","note",s.tree.x));q.lastChild.style.color="var(--ink)";card.appendChild(q);
+  card.appendChild(viewTree(s.tree));
+  var r=el("div");r.appendChild(el("span","eyebrow","Recommendation"));r.appendChild(el("p","recline",s.rec.a));card.appendChild(r);
+  if(!isMine){var a=el("div","acts");a.appendChild(voteBtn(s.id));
+    var cb=el("button","btn small","Compare with mine");cb.type="button";cb.addEventListener("click",function(){S.compare=s.id;renderCase()});a.appendChild(cb);
+    var cp=el("button","link","Copy this structure into my workspace");cp.type="button";
+    cp.addEventListener("click",function(){var w=curWork();
+      clone(s.tree).k.forEach(function(n){(function re(x){x.id=nid();x.k.forEach(re)})(n);w.tree.k.push(n)});touch(true);renderTree();toast("Copied. Their branches were added below yours.")});a.appendChild(cp);
+    card.appendChild(a)}
+  return card}
+function cmpCol(title,s){var col=el("div","sol");col.appendChild(el("h4",null,title));
+  col.appendChild(el("span","meta",s.tree.k.length+" top-level branches · "+depth(s.tree)+" levels deep · "+countType(s.tree,"h")+" hypotheses · "+countType(s.tree,"n")+" calculations"));
+  var q=el("div");q.appendChild(el("span","eyebrow","Question"));q.appendChild(el("p","recmore",s.tree.x));col.appendChild(q);
+  col.appendChild(viewTree(s.tree));
+  var r=el("div");r.appendChild(el("span","eyebrow","Recommendation"));r.appendChild(el("p","recline",s.rec.a||"(none yet)"));col.appendChild(r);
+  [["Reasons",s.rec.w],["Risks",s.rec.r],["Next steps",s.rec.n]].forEach(function(x){if(x[1]){var b=el("div");b.appendChild(el("span","eyebrow",x[0]));b.appendChild(el("p","recmore",x[1]));col.appendChild(b)}});
+  return col}
+function renderSolutions(c,sols){
+  var host=$("#sub-sols");host.textContent="";var w=workOf(c.id),mine=mySol(c.id),others=sols.filter(function(s){return s.authorId!==ME.id});
+  if(!mine&&!(w&&w.skip)){
+    var lk=el("div","lock");lk.appendChild(el("h3",null,others.length?others.length+(others.length===1?" solution is":" solutions are")+" waiting":"No solutions yet"));
+    lk.appendChild(el("p","note",others.length?"Publish your own attempt first. Reading someone else's structure before you build yours teaches you their answer and not the skill.":"Be the first to publish a solution for this case."));
+    var go=el("button","btn primary","Go to my workspace");go.type="button";go.addEventListener("click",function(){S.sub="work";renderCase()});lk.appendChild(go);
+    if(others.length){var sk=el("button","link","Show them anyway");sk.type="button";sk.addEventListener("click",function(){curWork().skip=true;touch();renderCase()});lk.appendChild(sk)}
+    host.appendChild(lk);return}
+  if(S.compare){var other=sols.find(function(s){return s.id===S.compare});
+    if(other){var bk=el("button","link","← All solutions");bk.type="button";bk.addEventListener("click",function(){S.compare=null;renderCase()});host.appendChild(bk);
+      var mineNow=mine||{tree:curWork().tree,rec:curWork().rec};
+      var g=el("div","cmp");g.style.marginTop="10px";g.appendChild(cmpCol(mine?"Your published solution":"Your workspace (unpublished)",mineNow));g.appendChild(cmpCol(nameOf(other.authorId),other));host.appendChild(g);
+      var p=el("p","note","Read across, not down. Which first-level split did each of you choose? What did they investigate that you skipped? Do the recommendations differ because of the structure, or because of an assumption?");p.style.marginTop="14px";host.appendChild(p);return}
+    S.compare=null}
+  var list=el("div","sols");
+  if(mine){var mc=solCard(mine,c,true);mc.insertBefore(el("span","chip done","Your solution"),mc.firstChild);mc.firstChild.style.alignSelf="flex-start";list.appendChild(mc)}
+  others.forEach(function(s){list.appendChild(solCard(s,c,false))});
+  if(!others.length)list.appendChild(el("p","note","No one else has published a solution for this case yet."));
+  host.appendChild(list)}
+
+function renderTalk(c,mine){
+  var act=document.activeElement,fk=act&&act.dataset?act.dataset.draft:null;if(fk&&fk.indexOf("top:")===0)fk=null;
+  var kids={},byId={};mine.forEach(function(r){byId[r.id]=r});
+  mine.forEach(function(r){var p=r.parentId&&byId[r.parentId]?r.parentId:"";(kids[p]=kids[p]||[]).push(r)});
+  Object.keys(kids).forEach(function(k){kids[k].sort(function(a,b){return a.createdAt-b.createdAt})});
+  var tt=$("#topText");tt.dataset.draft="top:"+c.id;if(document.activeElement!==tt)tt.value=S.drafts["top:"+c.id]||"";
+  function node(r,dp){
+    var n=el("div","reply"),hd=el("div","byline");hd.appendChild(who(r.authorId));
+    if(r.kind&&!r.deleted)hd.appendChild(el("span","chip kind",r.kind));hd.appendChild(el("span","meta",ago(r.createdAt)));n.appendChild(hd);
+    n.appendChild(el("p","body"+(r.deleted?" gone":""),r.deleted?"Removed by its author":r.body));
+    if(!r.deleted){var a=el("div","acts");a.appendChild(voteBtn(r.id));
+      var rb=el("button","link",S.replyTo===r.id?"Cancel":"Reply");rb.type="button";
+      rb.addEventListener("click",function(){S.replyTo=S.replyTo===r.id?null:r.id;renderCase();var x=document.querySelector('[data-draft="re:'+r.id+'"]');if(x)x.focus()});a.appendChild(rb);
+      if(r.authorId===ME.id)a.appendChild(delBtn(r.id,function(){if((kids[r.id]||[]).length){r.deleted=true;r.body="";Store.put("replies",r)}else{D.replies=D.replies.filter(function(x){return x.id!==r.id});Store.remove("replies",r.id)}renderCase()}));
+      n.appendChild(a)}
+    if(S.replyTo===r.id){var f=el("div","compose"),ta=el("textarea");ta.maxLength=6000;ta.rows=3;ta.dataset.draft="re:"+r.id;ta.setAttribute("aria-label","Reply to this comment");ta.value=S.drafts["re:"+r.id]||"";
+      var pb=el("button","btn primary","Post reply");pb.type="button";pb.addEventListener("click",function(){postReply(c.id,r.id,"re:"+r.id)});f.appendChild(ta);f.appendChild(pb);n.appendChild(f)}
+    var ch=(kids[r.id]||[]).filter(function(x){return !x.deleted||(kids[x.id]||[]).length});
+    if(ch.length){var kd=el("div",dp<4?"kids":"replies");ch.forEach(function(x){kd.appendChild(node(x,dp+1))});n.appendChild(kd)}
+    return n}
+  var box=$("#replies");box.textContent="";
+  var tops=(kids[""]||[]).filter(function(x){return !x.deleted||(kids[x.id]||[]).length});
+  tops.forEach(function(r){box.appendChild(node(r,0))});
+  if(!tops.length)box.appendChild(el("p","note","No discussion yet. Use this for clarifying questions and for challenging assumptions; put your full answer in a solution."));
+  if(fk){var f2=document.querySelector('[data-draft="'+fk+'"]');if(f2)f2.focus()}}
+function postReply(caseId,parentId,key){
+  var ta=document.querySelector('[data-draft="'+key+'"]'),body=(ta?ta.value:"").trim();
+  if(!body){toast("Write something before posting.");return}
+  var r={id:newId("r"),caseId:caseId,parentId:parentId||null,kind:parentId?null:$("#topKind").value,body:body,authorId:ME.id,createdAt:Date.now()};
+  D.replies.push(r);Store.put("replies",r);delete S.drafts[key];if(ta)ta.value="";if(parentId)S.replyTo=null;renderCase()}
+
+/* ---------- my practice ---------- */
+function renderPractice(){
+  var cov=$("#cov");cov.textContent="";var least=null;
+  TYPES.forEach(function(t){var all=D.cases.filter(function(c){return c.type===t});if(!all.length)return;
+    var st=all.filter(function(c){return progOf(c.id)!=="new"}).length;if(!least||st/all.length<least[1])least=[t,st/all.length];
+    cov.appendChild(el("span",null,t));var b=el("div","bar"),i=el("i");i.style.width=(st/all.length*100)+"%";b.appendChild(i);cov.appendChild(b);cov.appendChild(el("span","meta",st+" of "+all.length))});
+  $("#covTip").textContent=least?(least[1]<1?"Least practised: "+least[0]+".":"You have started a case of every type."):"";
+  var ul=$("#myCases");ul.textContent="";var mine=D.cases.filter(function(c){return progOf(c.id)!=="new"});$("#myEmpty").hidden=mine.length>0;
+  mine.forEach(function(c){var li=el("li","row"),p=progOf(c.id);li.appendChild(el("span","chip "+p,p==="done"?"Solved":"Started"));
+    var b=el("button","link",c.title);b.type="button";b.style.color="var(--ink)";b.style.fontSize="14.5px";b.addEventListener("click",function(){openCase(c.id)});li.appendChild(b);ul.appendChild(li)})}
+
+function renderAll(){renderList();renderCase();renderPractice()}
+
+/* ---------- actions ---------- */
+function setPane(p){document.body.dataset.pane=p}
+function setTab(t){S.tab=t;["cases","toolkit","practice"].forEach(function(k){$("#tab-"+k).hidden=k!==t});
+  document.querySelectorAll("[data-tab]").forEach(function(b){b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false")});if(t==="practice")renderPractice()}
+function openCase(id){S.sel=id;S.view="thread";S.sub="work";S.replyTo=null;S.confirm=null;S.compare=null;setTab("cases");setPane("detail");
+  try{history.replaceState(null,"","#"+id)}catch(e){}renderAll();loadWorkspace();window.scrollTo(0,0)}
+function openForm(){S.view="new";setTab("cases");setPane("detail");$("#fErr").hidden=true;renderAll();$("#fTitle").focus()}
+
+/* ---------- calculators (built once; onSave adds the result to the tree) ---------- */
+function numField(id,label,val){var l=el("label");l.htmlFor=id;l.appendChild(document.createTextNode(label));var i=el("input");i.type="number";i.id=id;i.step="any";i.value=val;l.appendChild(i);return i}
+function stat(host,label){var d=el("div");d.appendChild(el("span","eyebrow",label));var b=el("b");d.appendChild(b);host.appendChild(d);return b}
+function addCalc(head,detail){var w=curWork(),f=S.selNode&&find(w.tree,S.selNode),p=f?f.node:w.tree;p.k.push({id:nid(),t:"n",x:head,d:detail,s:"",k:[]});p.c=false;touch(true);renderTree();
+  toast(f?"Added under “"+(f.node.x||"that branch")+"”":"Added to the top level of your tree")}
+function profitTool(host,pfx,canSave){
+  var box=el("div","tool");box.appendChild(el("h3",null,"Profit and breakeven"));
+  box.appendChild(el("p","note","Example figures. Replace them with the case numbers. The table shows which lever moves profit most."));
+  var f=el("div","fields"),inp={};
+  [["p","Price per unit (₹)",250],["v","Units sold",100000],["vc","Variable cost per unit (₹)",150],["fc","Fixed costs (₹)",6000000]].forEach(function(x){inp[x[0]]=numField(pfx+x[0],x[1],x[2]);f.appendChild(inp[x[0]].parentNode)});
+  box.appendChild(f);
+  var out=el("div","out"),oR=stat(out,"Revenue"),oP=stat(out,"Profit"),oM=stat(out,"Margin"),oB=stat(out,"Breakeven units");box.appendChild(out);
+  var tw=el("div","tw"),tb=el("table");tw.appendChild(tb);box.appendChild(tw);var head="",txt="";
+  function pr(p,v,vc,fc){return (p-vc)*v-fc}
+  function calc(){var p=+inp.p.value||0,v=+inp.v.value||0,vc=+inp.vc.value||0,fc=+inp.fc.value||0,rev=p*v,pf=pr(p,v,vc,fc),be=p>vc?fc/(p-vc):NaN,mg=rev?(pf/rev*100).toFixed(1)+"%":"—";
+    oR.textContent="₹"+fmt(rev);oP.textContent="₹"+fmt(pf);oP.className=pf<0?"neg":"";oM.textContent=mg;oB.textContent=isFinite(be)?fmt(Math.ceil(be)):"None (price ≤ variable cost)";
+    tb.textContent="";var hr=el("tr");[["A 10% improvement in",""],["New profit","n"],["Change","n"]].forEach(function(x){hr.appendChild(el("th",x[1],x[0]))});tb.appendChild(hr);
+    var best=["",-Infinity];
+    [["Price",pr(p*1.1,v,vc,fc)],["Volume",pr(p,v*1.1,vc,fc)],["Variable cost",pr(p,v,vc*.9,fc)],["Fixed cost",pr(p,v,vc,fc*.9)]].forEach(function(x){
+      var tr=el("tr"),dl=x[1]-pf;if(dl>best[1])best=[x[0],dl];tr.appendChild(el("td",null,x[0]));tr.appendChild(el("td","n","₹"+fmt(x[1])));tr.appendChild(el("td","n",(dl>=0?"+₹":"−₹")+fmt(Math.abs(dl))));tb.appendChild(tr)});
+    head="Profit ₹"+fmt(pf)+" ("+mg+" margin), breakeven "+(isFinite(be)?fmt(Math.ceil(be))+" units":"not reachable");
+    txt="Assumptions: price ₹"+fmt(p)+" × "+fmt(v)+" units; variable cost ₹"+fmt(vc)+"/unit; fixed costs ₹"+fmt(fc)+"\nRevenue ₹"+fmt(rev)+"\nBiggest lever: 10% better "+best[0].toLowerCase()+" adds ₹"+fmt(best[1])}
+  Object.keys(inp).forEach(function(k){inp[k].addEventListener("input",calc)});calc();
+  if(canSave){var b=el("button","btn","Add result to my tree");b.type="button";b.style.alignSelf="flex-start";b.addEventListener("click",function(){addCalc(head,txt)});box.appendChild(b)}
+  host.appendChild(box)}
+function sizeTool(host,pfx,canSave){
+  var box=el("div","tool");box.appendChild(el("h3",null,"Market sizing"));
+  box.appendChild(el("p","note","Top-down: start from a base and narrow it step by step. Example figures; state your own assumption on each line."));
+  var rows=[["Households in the city",2500000,"n"],["In the target income band",30,"%"],["Who buy the category",40,"%"],["Purchases per year",6,"x"],["Average price (₹)",250,"x"]];
+  var list=el("div");list.style.cssText="display:flex;flex-direction:column;gap:6px";box.appendChild(list);
+  var addB=el("button","link","+ Add a step");addB.type="button";addB.style.alignSelf="flex-start";box.appendChild(addB);
+  var out=el("div","out"),oT=stat(out,"Estimate");box.appendChild(out);
+  var rupL=el("label");rupL.style.cssText="display:flex;gap:6px;align-items:center;font-size:13.5px";var rup=el("input");rup.type="checkbox";rup.id=pfx+"rup";rup.checked=true;rup.style.width="auto";rupL.htmlFor=rup.id;rupL.appendChild(rup);rupL.appendChild(document.createTextNode("The estimate is in rupees per year"));box.appendChild(rupL);
+  var head="",txt="";
+  function calc(){var tot=1,lines=[];rows.forEach(function(r,i){var v=+r[1]||0;tot*=i===0||r[2]!=="%"?v:v/100;lines.push((i===0?"":"× ")+(r[0]||"step")+": "+(r[2]==="%"?v+"%":fmt(v)))});
+    var res=(rup.checked?"₹":"")+fmt(tot)+(rup.checked?" a year":"");oT.textContent=res;head="Market size ≈ "+res;txt=lines.join("\n")}
+  function draw(){list.textContent="";rows.forEach(function(r,i){var d=el("div","srow");
+    var a=el("input");a.type="text";a.value=r[0];a.id=pfx+"l"+i;a.setAttribute("aria-label","Step "+(i+1)+" label");a.addEventListener("input",function(){r[0]=a.value;calc()});
+    var s=el("select");s.id=pfx+"u"+i;s.setAttribute("aria-label","Step "+(i+1)+" type");
+    if(i===0){var o=el("option",null,"base");o.value="n";s.appendChild(o);s.disabled=true}
+    else[["%","%"],["x","×"]].forEach(function(x){var o=el("option",null,x[1]);o.value=x[0];s.appendChild(o)});
+    s.value=r[2];s.addEventListener("change",function(){r[2]=s.value;calc()});
+    var n=el("input");n.type="number";n.step="any";n.value=r[1];n.id=pfx+"v"+i;n.setAttribute("aria-label","Step "+(i+1)+" value");n.addEventListener("input",function(){r[1]=n.value;calc()});
+    var x=el("button","xb","×");x.type="button";x.setAttribute("aria-label","Remove step "+(i+1));if(i===0)x.style.visibility="hidden";x.addEventListener("click",function(){rows.splice(i,1);draw()});
+    d.appendChild(a);d.appendChild(s);d.appendChild(n);d.appendChild(x);list.appendChild(d)});calc()}
+  addB.addEventListener("click",function(){rows.push(["",100,"%"]);draw()});rup.addEventListener("change",calc);draw();
+  if(canSave){var b=el("button","btn","Add result to my tree");b.type="button";b.style.alignSelf="flex-start";b.addEventListener("click",function(){addCalc(head,txt)});box.appendChild(b)}
+  host.appendChild(box)}
+function timerTool(host){
+  var box=el("div","tool");box.appendChild(el("h3",null,"Case timer"));
+  box.appendChild(el("p","note","Solve under interview conditions. A first-round case usually runs 25 to 35 minutes."));
+  var ck=el("div","clock","30:00");box.appendChild(ck);
+  var left=1800,iv=null,r=el("div","row");
+  function show(){var m=Math.floor(Math.abs(left)/60),s=Math.abs(left)%60;ck.textContent=(left<0?"+":"")+(m<10?"0":"")+m+":"+(s<10?"0":"")+s;ck.className="clock"+(left<0?" over":"")}
+  var go=el("button","btn primary","Start");go.type="button";
+  go.addEventListener("click",function(){if(iv){clearInterval(iv);iv=null;go.textContent="Resume"}else{iv=setInterval(function(){left--;show()},1000);go.textContent="Pause"}});
+  r.appendChild(go);
+  [15,30,45].forEach(function(m){var b=el("button","btn",m+" min");b.type="button";b.addEventListener("click",function(){clearInterval(iv);iv=null;go.textContent="Start";left=m*60;show()});r.appendChild(b)});
+  box.appendChild(r);host.appendChild(box)}
+
+/* ---------- wiring ---------- */
+document.addEventListener("input",function(ev){var k=ev.target.dataset&&ev.target.dataset.draft;if(k)S.drafts[k]=ev.target.value});
+document.querySelectorAll("[data-tab]").forEach(function(b){b.addEventListener("click",function(){setTab(b.dataset.tab)})});
+document.querySelectorAll("[data-sub]").forEach(function(b){b.addEventListener("click",function(){S.sub=b.dataset.sub;S.compare=null;renderCase()})});
+document.querySelectorAll("[data-prog]").forEach(function(b){b.addEventListener("click",function(){S.prog=b.dataset.prog;
+  document.querySelectorAll("[data-prog]").forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});renderList()})});
+$("#topPost").addEventListener("click",function(){if(S.sel)postReply(S.sel,null,"top:"+S.sel)});
+$("#newBtn").addEventListener("click",openForm);
+$("#fCancel").addEventListener("click",function(){S.view=S.sel?"thread":"welcome";if(S.view==="welcome")setPane("list");renderAll()});
+$("#backBtn").addEventListener("click",function(){setPane("list");window.scrollTo(0,0)});
+$("#q").addEventListener("input",function(){S.q=this.value;renderList()});
+$("#typeFilter").addEventListener("change",function(){S.type=this.value;renderList()});
+$("#savedBtn").addEventListener("click",function(){S.onlySaved=!S.onlySaved;this.setAttribute("aria-pressed",S.onlySaved?"true":"false");renderList()});
+$("#wRoot").addEventListener("input",function(){curWork().tree.x=this.value;touch()});
+[["rA","a"],["rW","w"],["rR","r"],["rN","n"]].forEach(function(x){$("#"+x[0]).addEventListener("input",function(){curWork().rec[x[1]]=this.value;touch(x[1]==="a")})});
+$("#addBranch").addEventListener("click",function(){var w=curWork(),n=mk("q");w.tree.k.push(n);S.focus=n.id;touch(true);renderTree()});
+$("#fwApply").addEventListener("click",function(){var fw=FW.find(function(x){return x.id===$("#fwSel").value}),w=curWork();
+  fw.b.forEach(function(b){var n=mk("q");n.x=b[0];n.h=b[1];w.tree.k.push(n)});touch(true);renderTree();toast(fw.name+" added. Now cut and rename it to fit this case.")});
+$("#pubBtn").addEventListener("click",publish);
+$("#newForm").addEventListener("submit",function(ev){ev.preventDefault();
+  var title=$("#fTitle").value.trim(),dec=$("#fDecision").value.trim(),ctx=$("#fContext").value.trim(),link=$("#fLink").value.trim(),err=$("#fErr"),msg="";
+  if(!title)msg="Give the case a name.";else if(!dec)msg="State the decision a solver has to answer.";
+  else if(link&&!/^https?:\/\/\S+$/i.test(link))msg="The source link must start with https://";
+  if(msg){err.textContent=msg;err.hidden=false;return}
+  err.hidden=true;var c={id:newId("c"),title:title,decision:dec,context:ctx,link:link,type:$("#fType").value,ind:$("#fInd").value,level:$("#fLevel").value,src:$("#fSrc").value,authorId:ME.id,createdAt:Date.now()};
+  D.cases.push(c);Store.put("cases",c);ev.target.reset();toast("Case posted");openCase(c.id)});
+$("#meName").addEventListener("change",function(){Store.setName(this.value.trim());renderAll()});
+var resetArmed=false;$("#resetBtn").addEventListener("click",function(){var b=this;if(resetArmed){Store.reset().then(function(){location.reload()})}else{resetArmed=true;b.textContent="Confirm: erase everything I have done here";setTimeout(function(){resetArmed=false;b.textContent="Erase my local data"},4000)}});
+
+/* ---------- boot ---------- */
+(function(){var f=$("#typeFilter"),o=el("option",null,"All case types");o.value="All";f.appendChild(o);opt(f,TYPES);
+  opt($("#fType"),TYPES);opt($("#fInd"),INDS);opt($("#fLevel"),LEVELS);opt($("#fSrc"),SRCS);opt($("#topKind"),KINDS);
+  FW.forEach(function(x){var o2=el("option",null,"Start from: "+x.name);o2.value=x.id;$("#fwSel").appendChild(o2)});
+  profitTool($("#caseCalc"),"cp_",true);sizeTool($("#caseCalc"),"cs_",true);
+  profitTool($("#kitCalc"),"kp_",false);sizeTool($("#kitCalc"),"ks_",false);timerTool($("#kitCalc"));
+  var g=$("#guide");FW.forEach(function(x){var c=el("div","tool");c.appendChild(el("h3",null,x.name));c.appendChild(el("p","note",x.use));
+    var ul=el("ul");x.b.forEach(function(b){var li=el("li");li.appendChild(el("b",null,b[0]+". "));li.appendChild(document.createTextNode(b[1]));ul.appendChild(li)});c.appendChild(ul);
+    var p=el("p","note");p.appendChild(el("b",null,"Common mistake: "));p.appendChild(document.createTextNode(x.trap));c.appendChild(p);g.appendChild(c)});
+  $("#meName").value=ME.name||""})();
+setPane("list");
+Promise.all(["cases","replies","solutions","work","votes","saved"].map(function(c){return Store.list(c)})).then(function(r){
+  D.cases=r[0];D.replies=r[1];D.solutions=r[2];D.work=r[3];r[4].forEach(function(v){D.votes[v.id]=true});r[5].forEach(function(v){D.saved[v.id]=true});
+  var want=(location.hash||"").slice(1);
+  if(want&&D.cases.some(function(c){return c.id===want}))openCase(want);else renderAll()});
+})();
+</script>
+</body>
+</html>
