@@ -159,3 +159,20 @@ drop policy if exists ai_exchanges_read on public.ai_exchanges;
 create policy ai_exchanges_read on public.ai_exchanges for select to authenticated using (user_id = (select auth.uid()));
 revoke insert, update, delete on public.ai_exchanges from authenticated, anon;
 grant select on public.ai_exchanges to authenticated;
+
+-- Token counts reported by Gemini for each exchange (output includes the model's thinking tokens).
+alter table public.ai_exchanges add column if not exists input_tokens integer;
+alter table public.ai_exchanges add column if not exists output_tokens integer;
+
+-- Read-back for the page: how many AI replies have been given in total and today.
+-- Returns counts only, never any row content, so it is safe for visitors who are not signed in.
+create or replace function public.ai_stats() returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'total', (select count(*) from public.ai_exchanges),
+    'today', (select count(*) from public.ai_exchanges
+              where created_at >= (date_trunc('day', now() at time zone 'Asia/Kolkata') at time zone 'Asia/Kolkata'))
+  );
+$$;
+revoke all on function public.ai_stats() from public;
+grant execute on function public.ai_stats() to anon, authenticated;
