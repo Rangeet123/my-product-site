@@ -126,6 +126,13 @@ ul.rt li>div>span:last-child{min-width:0}
 .recline{margin:0;font-size:16px;font-weight:500;max-width:66ch;overflow-wrap:anywhere}
 .recmore{margin:0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere;max-width:68ch}
 .cmp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.aiout{border-left:4px solid var(--accent);background:var(--bg);padding:10px 14px;border-radius:0 6px 6px 0;white-space:pre-wrap;overflow-wrap:anywhere;max-width:72ch;margin:0}
+.aibox{border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.aibox select{width:auto}
+.chat{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
+.msg{display:flex;flex-direction:column;gap:2px;max-width:72ch}
+.msg p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.m p{border-left:4px solid var(--accent);padding-left:12px}
 .lock{border:1px dashed var(--line);border-radius:8px;padding:22px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
 
 .compose{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
@@ -281,6 +288,7 @@ details.calc[open] summary{margin-bottom:12px}
           <button type="button" role="tab" data-sub="work" aria-selected="true">My workspace</button>
           <button type="button" role="tab" data-sub="sols" aria-selected="false" id="subSols">Solutions</button>
           <button type="button" role="tab" data-sub="talk" aria-selected="false" id="subTalk">Discussion</button>
+          <button type="button" role="tab" data-sub="int" aria-selected="false">Interviewer</button>
         </div>
 
         <div id="sub-work">
@@ -299,6 +307,20 @@ details.calc[open] summary{margin-bottom:12px}
             <div id="tree"></div>
             <div class="row"><button class="btn small" type="button" id="addBranch">+ Add branch</button></div>
             <p class="note" id="mece">Before you move on: do any two branches overlap? Is there a cause or option that fits none of them? A framework gives you starting branches; rename, cut and add until the tree fits this case.</p>
+            <div class="aibox" id="coachBox">
+              <span class="eyebrow">AI coach</span>
+              <p class="note" id="coachNote">The coach reviews your tree and nudges you. It will not write the structure for you.</p>
+              <div class="row" id="coachRow">
+                <select id="coachLevel" aria-label="How much help">
+                  <option value="1">Ask me one question</option>
+                  <option value="2">Point to my biggest gap</option>
+                  <option value="3">Critique the whole structure</option>
+                </select>
+                <button class="btn small" type="button" id="coachBtn">Ask the coach</button>
+                <span class="meta ai-use"></span>
+              </div>
+              <p class="aiout" id="coachOut" hidden></p>
+            </div>
           </div>
           <div class="block">
             <h3>3. Calculations</h3>
@@ -337,6 +359,19 @@ details.calc[open] summary{margin-bottom:12px}
             </div>
           </div>
           <div class="replies" id="replies"></div>
+        </div>
+        <div id="sub-int" hidden>
+          <p class="note" style="margin-bottom:14px">Run the case as an interview. You lead: state your approach, ask for the data you need, and the AI interviewer answers. Figures it gives are made up for practice and are not real company data. This conversation is private to you.</p>
+          <div class="chat" id="chat"></div>
+          <div class="compose" id="intCompose">
+            <textarea id="intText" maxlength="1200" placeholder="e.g. I'd like to start by checking whether the margin fall is specific to us. Do we know how competitors' margins moved?" aria-label="Your message to the interviewer"></textarea>
+            <div class="row">
+              <button class="btn primary" type="button" id="intSend">Send</button>
+              <button class="link" type="button" id="intClear">Start over</button>
+              <span class="meta ai-use"></span>
+            </div>
+          </div>
+          <p class="note" id="intNote" hidden>Sign in to practise with the AI interviewer.</p>
         </div>
       </article>
     </section>
@@ -502,7 +537,7 @@ function SupabaseStore(sb,u){
 var Local=LocalStore(),Store=Local,ME=Store.me(),SB=null,AUTH=false;
 
 var D={cases:[],replies:[],solutions:[],work:[],votes:{},vc:{},saved:{},people:{}};
-var S={tab:"cases",sub:"work",sel:null,view:"welcome",prog:"all",type:"All",onlySaved:false,q:"",replyTo:null,drafts:{},confirm:null,selNode:null,focus:null,compare:null};
+var S={tab:"cases",sub:"work",cmpText:{},aiUse:"",sel:null,view:"welcome",prog:"all",type:"All",onlySaved:false,q:"",replyTo:null,drafts:{},confirm:null,selNode:null,focus:null,compare:null};
 var $=function(s){return document.querySelector(s)};
 function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
 function opt(sel,list){list.forEach(function(n){sel.appendChild(el("option",null,n))})}
@@ -592,7 +627,7 @@ function renderPubState(){var c=cur();if(!c)return;var s=mySol(c.id),w=workOf(c.
   $("#pubState").textContent=s?"Published "+ago(s.createdAt)+(w&&w.updatedAt>s.createdAt?" · you have unpublished edits":""):"Saved automatically as you type"}
 function loadWorkspace(){var w=curWork(),c=cur();
   $("#wRoot").value=w.tree.x;$("#rA").value=w.rec.a;$("#rW").value=w.rec.w;$("#rR").value=w.rec.r;$("#rN").value=w.rec.n;
-  $("#fwSel").value=TYPEFW[c.type]||"3c";$("#pubErr").hidden=true;S.selNode=null;renderTree();renderPubState()}
+  $("#fwSel").value=TYPEFW[c.type]||"3c";$("#pubErr").hidden=true;$("#coachOut").hidden=true;$("#coachOut").textContent="";S.selNode=null;renderTree();renderPubState()}
 function publish(){var c=cur(),w=curWork(),err=$("#pubErr");
   if(count(w.tree)<3||!w.rec.a.trim()){err.textContent="Add at least three nodes to your tree and write a one-sentence recommendation before publishing.";err.hidden=false;return}
   err.hidden=true;var sol={id:"sol_"+c.id+"_"+ME.id,caseId:c.id,authorId:ME.id,tree:clone(w.tree),rec:clone(w.rec),createdAt:Date.now()};
@@ -644,11 +679,11 @@ function renderCase(){
   var sb=el("button","link",D.saved[c.id]?"Saved ✓":"Save");sb.type="button";sb.addEventListener("click",function(){if(D.saved[c.id]){delete D.saved[c.id];Store.remove("saved",c.id)}else{D.saved[c.id]=true;Store.put("saved",{id:c.id})}renderAll()});by.appendChild(sb);
   if(c.authorId===ME.id)by.appendChild(delBtn(c.id,function(){D.cases=D.cases.filter(function(x){return x.id!==c.id});Store.remove("cases",c.id);S.sel=null;S.view="welcome";setPane("list");toast("Case deleted");renderAll()}));
   h.appendChild(by);
-  ["work","sols","talk"].forEach(function(k){$("#sub-"+k).hidden=S.sub!==k});
+  ["work","sols","talk","int"].forEach(function(k){$("#sub-"+k).hidden=S.sub!==k});
   document.querySelectorAll("[data-sub]").forEach(function(b){b.setAttribute("aria-selected",b.dataset.sub===S.sub?"true":"false")});
   var sols=D.solutions.filter(function(s){return s.caseId===c.id}),mine=D.replies.filter(function(r){return r.caseId===c.id});
   $("#subSols").textContent="Solutions ("+sols.length+")";$("#subTalk").textContent="Discussion ("+mine.filter(function(r){return !r.deleted}).length+")";
-  renderSolutions(c,sols);renderTalk(c,mine);renderPubState()}
+  renderSolutions(c,sols);renderTalk(c,mine);renderInt(c);renderPubState()}
 
 function solCard(s,c,isMine){
   var card=el("div","sol"),hd=el("div","byline");hd.appendChild(who(s.authorId));
@@ -683,7 +718,15 @@ function renderSolutions(c,sols){
     if(other){var bk=el("button","link","← All solutions");bk.type="button";bk.addEventListener("click",function(){S.compare=null;renderCase()});host.appendChild(bk);
       var mineNow=mine||{tree:curWork().tree,rec:curWork().rec};
       var g=el("div","cmp");g.style.marginTop="10px";g.appendChild(cmpCol(mine?"Your published solution":"Your workspace (unpublished)",mineNow));g.appendChild(cmpCol(nameOf(other.authorId),other));host.appendChild(g);
-      var p=el("p","note","Read across, not down. Which first-level split did each of you choose? What did they investigate that you skipped? Do the recommendations differ because of the structure, or because of an assumption?");p.style.marginTop="14px";host.appendChild(p);return}
+      var p=el("p","note","Read across, not down. Which first-level split did each of you choose? What did they investigate that you skipped? Do the recommendations differ because of the structure, or because of an assumption?");p.style.marginTop="14px";host.appendChild(p);
+      if(AUTH){var ab=el("div","aibox");ab.style.marginTop="14px";ab.appendChild(el("span","eyebrow","AI compare"));
+        var out=el("p","aiout",S.cmpText[other.id]||"");out.hidden=!S.cmpText[other.id];
+        var eb=el("button","btn small",S.cmpText[other.id]?"Explain again":"Explain how these two differ");eb.type="button";eb.style.alignSelf="flex-start";
+        eb.addEventListener("click",function(){eb.disabled=true;out.hidden=false;out.textContent="Thinking…";
+          ai({mode:"compare",case:caseInfo(c),mine:{tree:slim(mineNow.tree),rec:mineNow.rec.a},other:{tree:slim(other.tree),rec:other.rec.a}})
+            .then(function(t){S.cmpText[other.id]=t;out.textContent=t;eb.textContent="Explain again"},function(e){out.textContent=e.message}).then(function(){eb.disabled=false})});
+        ab.appendChild(eb);ab.appendChild(out);host.appendChild(ab)}
+      return}
     S.compare=null}
   var list=el("div","sols");
   if(mine){var mc=solCard(mine,c,true);mc.insertBefore(el("span","chip done","Your solution"),mc.firstChild);mc.firstChild.style.alignSelf="flex-start";list.appendChild(mc)}
@@ -721,6 +764,34 @@ function postReply(caseId,parentId,key){
   if(!body){toast("Write something before posting.");return}
   var r={id:newId("r"),caseId:caseId,parentId:parentId||null,kind:parentId?null:$("#topKind").value,body:body,authorId:ME.id,createdAt:Date.now()};
   D.replies.push(r);Store.put("replies",r);delete S.drafts[key];if(ta)ta.value="";if(parentId)S.replyTo=null;renderCase()}
+
+/* ---------- AI: coach, compare, interviewer. All calls go to /api/coach, which holds the Gemini key. ---------- */
+function slim(n){return {t:n.t,x:n.x,s:n.s,d:n.d,k:(n.k||[]).map(slim)}}
+function caseInfo(c){return {title:c.title,decision:c.decision,context:c.context||""}}
+function showUse(){document.querySelectorAll(".ai-use").forEach(function(e){e.textContent=S.aiUse})}
+function ai(payload){
+  if(!AUTH)return Promise.reject(new Error("Sign in to use the AI features."));
+  return SB.auth.getSession().then(function(r){var t=r&&r.data&&r.data.session&&r.data.session.access_token;
+    if(!t)throw new Error("Your session has expired. Sign in again.");
+    return fetch("/api/coach",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+t},body:JSON.stringify(payload)})})
+  .then(function(res){return res.json().catch(function(){return {}}).then(function(j){
+    if(j.limit){S.aiUse=j.used+" of "+j.limit+" AI requests used today";showUse()}
+    if(!res.ok||!j.text)throw new Error(j.error||"The AI service did not answer. Try again in a moment.");
+    return j.text})})}
+function saveWork(w){w.updatedAt=Date.now();return Store.put("work",w)}
+function renderInt(c){
+  $("#intCompose").hidden=!AUTH;$("#intNote").hidden=AUTH;$("#coachRow").hidden=!AUTH;
+  if(!AUTH)$("#coachNote").textContent="Sign in to get AI feedback on your structure.";
+  var w=workOf(c.id),box=$("#chat");box.textContent="";
+  ((w&&w.chat)||[]).forEach(function(m){var d=el("div","msg "+m.r);d.appendChild(el("span","eyebrow",m.r==="m"?"Interviewer":"You"));d.appendChild(el("p",null,m.x));box.appendChild(d)});
+  if(S.intBusy===c.id){var t=el("div","msg m");t.appendChild(el("span","eyebrow","Interviewer"));t.appendChild(el("p",null,"Thinking…"));box.appendChild(t)}
+  if(AUTH&&!box.firstChild)box.appendChild(el("p","note","Nothing yet. Open with how you would approach the case, or ask your first clarifying question."))}
+function sendInt(){
+  var c=cur(),ta=$("#intText"),msg=ta.value.trim();if(!c||!msg||S.intBusy)return;
+  var w=curWork();w.chat=w.chat||[];w.chat.push({r:"u",x:msg});ta.value="";S.intBusy=c.id;$("#intSend").disabled=true;renderInt(c);
+  ai({mode:"interview",case:caseInfo(c),chat:w.chat.slice(-24)}).then(function(t){w.chat.push({r:"m",x:t});if(w.chat.length>60)w.chat=w.chat.slice(-60);saveWork(w)},
+    function(e){w.chat.pop();if(!ta.value)ta.value=msg;toast(e.message)})
+  .then(function(){S.intBusy=null;$("#intSend").disabled=false;if(cur()===c)renderInt(c)})}
 
 /* ---------- my practice ---------- */
 function renderPractice(){
@@ -822,6 +893,16 @@ $("#addBranch").addEventListener("click",function(){var w=curWork(),n=mk("q");w.
 $("#fwApply").addEventListener("click",function(){var fw=FW.find(function(x){return x.id===$("#fwSel").value}),w=curWork();
   fw.b.forEach(function(b){var n=mk("q");n.x=b[0];n.h=b[1];w.tree.k.push(n)});touch(true);renderTree();toast(fw.name+" added. Now cut and rename it to fit this case.")});
 $("#pubBtn").addEventListener("click",publish);
+$("#coachBtn").addEventListener("click",function(){var c=cur(),w=curWork(),out=$("#coachOut"),b=this;out.hidden=false;
+  if(count(w.tree)<2){out.textContent="Add at least two branches first, so there is something to review.";return}
+  b.disabled=true;out.textContent="Thinking…";
+  ai({mode:"coach",level:+$("#coachLevel").value,case:caseInfo(c),tree:slim(w.tree),rec:w.rec.a})
+    .then(function(t){if(cur()===c)out.textContent=t},function(e){out.textContent=e.message}).then(function(){b.disabled=false})});
+$("#intSend").addEventListener("click",sendInt);
+$("#intText").addEventListener("keydown",function(ev){if(ev.key==="Enter"&&(ev.metaKey||ev.ctrlKey)){ev.preventDefault();sendInt()}});
+var intArmed=false;$("#intClear").addEventListener("click",function(){var b=this,c=cur(),w=c&&workOf(c.id);if(!w||!w.chat||!w.chat.length)return;
+  if(intArmed){intArmed=false;b.textContent="Start over";w.chat=[];saveWork(w);renderInt(c)}
+  else{intArmed=true;b.textContent="Confirm: clear this conversation";setTimeout(function(){intArmed=false;b.textContent="Start over"},4000)}});
 $("#newForm").addEventListener("submit",function(ev){ev.preventDefault();
   var title=$("#fTitle").value.trim(),dec=$("#fDecision").value.trim(),ctx=$("#fContext").value.trim(),link=$("#fLink").value.trim(),err=$("#fErr"),msg="";
   if(!title)msg="Give the case a name.";else if(!dec)msg="State the decision a solver has to answer.";
