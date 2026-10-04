@@ -113,3 +113,31 @@ drop policy if exists votes_delete on public.votes;
 create policy votes_delete on public.votes for delete to authenticated using (user_id = (select auth.uid()));
 
 grant select, insert, update, delete on public.profiles, public.cases, public.replies, public.solutions, public.work, public.votes, public.saved to authenticated;
+
+-- AI usage: one row per person per day. People can read their own count; only the
+-- bump_ai_usage() function can change it, and it only ever counts upwards.
+create table if not exists public.ai_usage (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  day date not null,
+  count integer not null default 0,
+  primary key (user_id, day)
+);
+alter table public.ai_usage enable row level security;
+drop policy if exists ai_usage_read on public.ai_usage;
+create policy ai_usage_read on public.ai_usage for select to authenticated using (user_id = (select auth.uid()));
+revoke insert, update, delete on public.ai_usage from authenticated, anon;
+grant select on public.ai_usage to authenticated;
+
+create or replace function public.bump_ai_usage() returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  if auth.uid() is null then raise exception 'not signed in' using errcode = '28000'; end if;
+  insert into public.ai_usage (user_id, day, count)
+  values (auth.uid(), (now() at time zone 'Asia/Kolkata')::date, 1)
+  on conflict (user_id, day) do update set count = public.ai_usage.count + 1
+  returning count into n;
+  return n;
+end $$;
+revoke all on function public.bump_ai_usage() from public, anon;
+grant execute on function public.bump_ai_usage() to authenticated;
