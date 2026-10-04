@@ -141,3 +141,21 @@ begin
 end $$;
 revoke all on function public.bump_ai_usage() from public, anon;
 grant execute on function public.bump_ai_usage() to authenticated;
+
+-- AI exchanges: what was sent to the model and what came back. Written only by the server
+-- function using the secret key; a member can read their own rows and nobody else's.
+create table if not exists public.ai_exchanges (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  mode text not null,
+  case_title text not null default '',
+  input text not null,
+  output text not null,
+  model text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.ai_exchanges enable row level security;
+drop policy if exists ai_exchanges_read on public.ai_exchanges;
+create policy ai_exchanges_read on public.ai_exchanges for select to authenticated using (user_id = (select auth.uid()));
+revoke insert, update, delete on public.ai_exchanges from authenticated, anon;
+grant select on public.ai_exchanges to authenticated;
