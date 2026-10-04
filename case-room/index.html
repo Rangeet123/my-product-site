@@ -319,6 +319,7 @@ details.calc[open] summary{margin-bottom:12px}
                 <button class="btn small" type="button" id="coachBtn">Ask the coach</button>
                 <span class="meta ai-use"></span>
               </div>
+              <span class="meta" id="aiStats"></span>
               <p class="aiout" id="coachOut" hidden></p>
             </div>
           </div>
@@ -777,7 +778,12 @@ function ai(payload){
   .then(function(res){return res.json().catch(function(){return {}}).then(function(j){
     if(j.limit){S.aiUse=j.used+" of "+j.limit+" AI requests used today";showUse()}
     if(!res.ok||!j.text)throw new Error(j.error||"The AI service did not answer. Try again in a moment.");
-    return j.text})})}
+    loadStats();return j.text})})}
+/* Read-back from Supabase: total AI replies given, shown under the coach to members and guests alike. */
+function loadStats(){
+  if(!SB||!SB.rpc)return;
+  try{Promise.resolve(SB.rpc("ai_stats")).then(function(r){var d=r&&r.data;if(!d||d.total==null)return;
+    $("#aiStats").textContent=Number(d.total).toLocaleString("en-IN")+" AI replies given to members so far · "+Number(d.today).toLocaleString("en-IN")+" today"},function(){})}catch(e){}}
 function saveWork(w){w.updatedAt=Date.now();return Store.put("work",w)}
 function renderInt(c){
   $("#intCompose").hidden=!AUTH;$("#intNote").hidden=AUTH;$("#coachRow").hidden=!AUTH;
@@ -974,7 +980,7 @@ function loadScript(src){return new Promise(function(ok,no){var s=document.creat
     SB=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);return SB.auth.getSession()
   }).then(function(r){var u=r&&r.data&&r.data.session&&r.data.session.user;
     if(u)return SupabaseStore(SB,u).then(function(st){Store=st;ME=st.me();AUTH=true})
-  }).catch(function(e){console.error(e);toast("Could not reach the server. Working in this browser only.")}).then(function(){renderAuth();return start()}).catch(function(e){console.error(e);toast("Could not load shared data. Reload to try again.")})})();
+  }).catch(function(e){console.error(e);toast("Could not reach the server. Working in this browser only.")}).then(function(){renderAuth();loadStats();return start()}).catch(function(e){console.error(e);toast("Could not load shared data. Reload to try again.")})})();
 })();
 </script>
 </body>

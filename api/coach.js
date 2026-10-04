@@ -108,7 +108,8 @@ async function gemini(key, req) {
     if (!r.ok) { last = (j.error && j.error.message) || "HTTP " + r.status; continue; }
     const parts = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [];
     const text = parts.filter((p) => p && p.text && !p.thought).map((p) => p.text).join("").trim();
-    if (text) return { text, model };
+    const um = j.usageMetadata || {};
+    if (text) return { text, model, inTok: um.promptTokenCount || null, outTok: (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0) || null };
     last = (j.promptFeedback && j.promptFeedback.blockReason) || (j.candidates && j.candidates[0] && j.candidates[0].finishReason) || "empty reply";
   }
   throw new Error(last);
@@ -116,7 +117,8 @@ async function gemini(key, req) {
 
 // Save the exchange with the service key. The caller's id comes from their session token, which
 // Supabase has already accepted above. A logging failure must not lose the answer.
-async function saveExchange(auth, body, built, text, model) {
+async function saveExchange(auth, body, built, g) {
+  const text = g.text, model = g.model;
   if (!SERVICE_KEY) return;
   try {
     const payload = JSON.parse(Buffer.from(auth.split(".")[1], "base64url").toString("utf8"));
@@ -124,7 +126,7 @@ async function saveExchange(auth, body, built, text, model) {
     const r = await fetch(SUPABASE_URL + "/rest/v1/ai_exchanges", {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: SERVICE_KEY, Authorization: "Bearer " + SERVICE_KEY, Prefer: "return=minimal" },
-      body: JSON.stringify({ user_id: payload.sub, mode: String(body.mode), case_title: clip(body.case && body.case.title, 120), input: String(last).slice(0, 8000), output: String(text).slice(0, 8000), model })
+      body: JSON.stringify({ user_id: payload.sub, mode: String(body.mode), case_title: clip(body.case && body.case.title, 120), input: String(last).slice(0, 8000), output: String(text).slice(0, 8000), model, input_tokens: g.inTok, output_tokens: g.outTok })
     });
     if (!r.ok) console.error("exchange not saved:", r.status);
   } catch (e) {
@@ -160,8 +162,9 @@ module.exports = async function handler(req, res) {
     if (!(used >= 1)) return send(503, { error: "AI usage tracking returned an unexpected value." });
     if (used > LIMIT) return send(429, { error: "You have used today's " + LIMIT + " AI requests. They reset at midnight India time.", used: LIMIT, limit: LIMIT });
 
-    const { text, model } = await gemini(key, built);
-    await saveExchange(auth, body, built, text, model);
+    const g = await gemini(key, built);
+    const text = g.text;
+    await saveExchange(auth, body, built, g);
     return send(200, { text, used, limit: LIMIT });
   } catch (e) {
     console.error("coach error:", e && e.message);
